@@ -13,13 +13,20 @@ def test_agent_workflow(tmp_path):
     write_file(tmp_path, "pkg/utils.py", "VALUE = 42\n")
 
     from coder_brain.agent import CoderBrainAgent, Task
+    from coder_brain.llm import MockLanguageModel
 
-    agent = CoderBrainAgent(tmp_path)
+    agent = CoderBrainAgent(tmp_path, language_model=MockLanguageModel())
     agent.bootstrap()
 
     task = Task(description="Fix app handle response bug", keywords=["handle", "app"])
     agent.create_plan(task)
 
-    assert "Prepared plan" in agent.report()
+    report = agent.report()
+    assert "Prepared plan" in report
+    assert "LLM-generated plan" in report
     hits = agent.inspect_code("handle")
     assert any("app.py" in hit for hit in hits)
+
+    # Ensure module summaries are populated for context selection
+    module_summary = agent.long_term_memory.summarize_module(tmp_path / "pkg")
+    assert module_summary

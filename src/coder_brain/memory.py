@@ -57,6 +57,7 @@ class LongTermMemory:
     """Stores persistent summaries and architecture decisions."""
 
     file_summaries: Dict[Path, str] = field(default_factory=dict)
+    module_summaries: Dict[Path, str] = field(default_factory=dict)
     decisions: List[str] = field(default_factory=list)
 
     def add_summary(self, path: Path, summary: str) -> None:
@@ -65,6 +66,12 @@ class LongTermMemory:
     def summarize(self, path: Path) -> Optional[str]:
         return self.file_summaries.get(path)
 
+    def add_module_summary(self, path: Path, summary: str) -> None:
+        self.module_summaries[path] = summary
+
+    def summarize_module(self, path: Path) -> Optional[str]:
+        return self.module_summaries.get(path)
+
     def add_decision(self, note: str) -> None:
         self.decisions.append(note)
 
@@ -72,6 +79,10 @@ class LongTermMemory:
         lines = ["Long term memory summaries:"]
         for path, summary in sorted(self.file_summaries.items()):
             lines.append(f"- {path}: {summary}")
+        if self.module_summaries:
+            lines.append("Module summaries:")
+            for path, summary in sorted(self.module_summaries.items()):
+                lines.append(f"- {path}: {summary}")
         if self.decisions:
             lines.append("Decisions:")
             lines.extend(f"  * {note}" for note in self.decisions)

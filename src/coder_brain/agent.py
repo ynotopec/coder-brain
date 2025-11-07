@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from .indexer import ProjectIndexer
 from .memory import FileContext, LongTermMemory, WorkingMemory
 from .tools.search import search_files, search_index
 from .tools.test_runner import run_tests, RunResult
+from .llm import LanguageModel, LLMConfig, create_language_model
 
 
 @dataclass
@@ -46,28 +47,58 @@ class CoderBrainAgent:
         root: Path,
         working_memory: Optional[WorkingMemory] = None,
         long_term_memory: Optional[LongTermMemory] = None,
+        *,
+        language_model: Optional[LanguageModel] = None,
+        llm_config: Optional[LLMConfig] = None,
     ) -> None:
         self.root = root
         self.indexer = ProjectIndexer(root)
         self.working_memory = working_memory or WorkingMemory()
         self.long_term_memory = long_term_memory or LongTermMemory()
+        self.language_model = language_model or create_language_model(llm_config)
         self.plan: List[PlanStep] = []
+        self.module_map: Dict[Path, List[Path]] = {}
 
     def bootstrap(self) -> None:
         """Initial scan replicating the human ability to build a mental map."""
 
         self.plan.clear()
         self.indexer.scan()
-        for path, indexed in self.indexer.files.items():
-            first_line = indexed.preview.splitlines()[0] if indexed.preview else ""
-            summary = first_line or f"{path.name} ({indexed.size} bytes)"
-            self.long_term_memory.add_summary(path, summary)
+        self._summarize_project()
         self.plan.append(
             PlanStep(
                 summary="Indexed project",
                 details=self.indexer.describe(),
             )
         )
+
+    def _summarize_project(self) -> None:
+        module_files: Dict[Path, List[Path]] = {}
+        for path, indexed in self.indexer.files.items():
+            module_files.setdefault(path.parent, []).append(path)
+            summary = self.language_model.summarize(
+                instructions=(
+                    "You summarise a code file for later retrieval. "
+                    "Produce a single concise sentence mentioning the main responsibility and key symbols."
+                ),
+                text=f"Path: {path}\nPreview:\n{indexed.preview or '(empty file)'}",
+            )
+            self.long_term_memory.add_summary(path, summary.strip())
+
+        self.module_map = module_files
+        for module_path, files in module_files.items():
+            summaries = [
+                self.long_term_memory.summarize(file) or file.name for file in files
+            ]
+            module_summary = self.language_model.summarize(
+                instructions=(
+                    "You are an architecture assistant."
+                    "Combine the following file summaries into a short module level description"
+                    " highlighting the service or domain."
+                ),
+                text=f"Module: {module_path}\n" + "\n".join(summaries),
+            )
+            self.long_term_memory.add_module_summary(module_path, module_summary.strip())
 
     def _select_relevant_files(self, task: Task, limit: int = 5) -> List[Path]:
         keywords = task.derive_keywords()
@@ -106,6 +137,35 @@ class CoderBrainAgent:
             PlanStep(
                 summary=f"Prepared plan for task: {task.description}",
                 details="\n".join(details),
+            )
+        )
+
+        module_context = []
+        for path in relevant:
+            module_summary = self.long_term_memory.summarize_module(path.parent)
+            file_summary = self.long_term_memory.summarize(path)
+            if module_summary:
+                module_context.append(f"Module {path.parent}: {module_summary}")
+            if file_summary:
+                module_context.append(f"File {path.name}: {file_summary}")
+        plan_instructions = (
+            "You are planning how to modify a code base."
+            "Write 3 to 5 bullet points describing concrete actions referencing files when possible."
+            "Finish with a test or validation step if applicable."
+        )
+        context_text = (
+            f"Task: {task.description}\n" + "\n".join(module_context)
+            if module_context
+            else f"Task: {task.description}\n(no context available)"
+        )
+        llm_plan = self.language_model.plan(
+            instructions=plan_instructions,
+            context=context_text,
+        )
+        self.plan.append(
+            PlanStep(
+                summary="LLM-generated plan",
+                details=llm_plan,
             )
         )
 
