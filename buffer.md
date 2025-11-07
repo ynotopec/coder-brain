@@ -1,3 +1,4 @@
+```
 Chat history
 You said:
 comment ce fait-il que l'humain malgré sa faible mémoire temporaire arrive à traiter du code avec plusieurs fichiers et un grand nombre de lignes ?
@@ -288,3 +289,4 @@ Si tu veux, au prochain message je peux te proposer une architecture concrète (
     un petit serveur d’outils (search, AST, tests),
 
     et un LLM orchestré qui se comporte comme un dev.
+```
