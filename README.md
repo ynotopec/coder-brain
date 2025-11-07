@@ -9,6 +9,25 @@ Prototype implementation of a developer assistant agent inspired by human cognit
 * **Tools** – Provide search and test runners that the agent can call instead of keeping everything mentally loaded.
 * **Agent orchestration** – Combine the index, working memory, and tools to plan work on a task in iterative loops.
 
+## Architecture diagram
+
+```mermaid
+flowchart LR
+    Task["Task input"] --> Agent["Agent orchestration"]
+    Agent --> WM["Working memory\n(sliding context)"]
+    Agent --> Index["Indexing service"]
+    Agent --> Tools["Tool controller"]
+    WM --> Agent
+    Index --> Agent
+    Tools --> Agent
+    Index --> Repo["Code repository"]
+    Tools --> Search["Search / navigation"]
+    Tools --> Tests["Test runner"]
+    Search --> Repo
+    Tests --> Repo
+    Repo --> Index
+```
+
 ## Usage
 
 ```bash
