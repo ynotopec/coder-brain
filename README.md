@@ -52,7 +52,49 @@ Command-line arguments override environment variables when both are provided.
 
 ## Development
 
-Install dev dependencies and run tests:
+### Automated setup
+
+To reproduce the complete installation and verification flow automatically, save the
+following script (for example as `install.sh`), adjust `REPO_DIR` if desired, and run it
+with `bash install.sh`:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_URL="https://github.com/<your-org>/coder-brain.git"
+REPO_DIR="${HOME}/coder-brain"
+PYTHON_BIN="python3.11"
+
+# 1. Clone or update the repository
+if [ -d "${REPO_DIR}" ]; then
+  git -C "${REPO_DIR}" pull --ff-only
+else
+  git clone "${REPO_URL}" "${REPO_DIR}"
+fi
+
+cd "${REPO_DIR}"
+
+# 2. Create virtual environment
+"${PYTHON_BIN}" -m venv .venv
+source .venv/bin/activate
+
+# 3. Upgrade packaging tools
+pip install --upgrade pip setuptools wheel
+
+# 4. Install coder-brain with dev extras
+pip install -e .[dev]
+
+# 5. Run verification tests
+pytest
+```
+
+The script ensures Python 3.11+ is used, installs the project in editable mode with the
+development extras, and finishes by running the test suite to confirm the setup.
+
+### Manual setup
+
+Install dev dependencies and run tests manually:
 
 ```bash
 pip install -e .[dev]
