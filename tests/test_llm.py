@@ -23,7 +23,18 @@ def test_mock_language_model_behaviour():
     model = MockLanguageModel()
     response = model.plan(
         instructions="Create a plan",
-        context="Line one\nLine two\nLine three",
+        context=(
+            "Task: Implement feature X\n"
+            "Module src/app: Core application logic\n"
+            "File handlers.py: Endpoint handlers\n"
+            "File services.py: Business rules\n"
+        ),
     )
-    assert "Mock plan" in response
-    assert response.count("-") >= 3
+    assert response.startswith("Mock plan:")
+    # Step numbering should now be explicit and start with clarifying the objective.
+    assert "1. Clarify the objective: Implement feature X." in response
+    # Ensure each file is represented in the audit section with descriptive text.
+    assert "Review handlers.py (Endpoint handlers)." in response
+    assert "Review services.py (Business rules)." in response
+    # A final validation step should still be present.
+    assert "Run the full test suite" in response
