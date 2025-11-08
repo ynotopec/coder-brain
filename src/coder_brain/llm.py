@@ -65,13 +65,105 @@ class MockLanguageModel(LanguageModel):
         self.config = config or LLMConfig(provider="mock", model="mock")
 
     def complete(self, *, system: str, user: str) -> str:
-        key_lines = [line.strip() for line in user.splitlines() if line.strip()]
+        if "plan" in system.lower():
+            return self._generate_plan(user)
+        return self._generate_summary(user)
+
+    def _generate_plan(self, context: str) -> str:
+        lines = [line.strip() for line in context.splitlines() if line.strip()]
+        task_line = next(
+            (line for line in lines if line.lower().startswith("task:")),
+            "Task: (unspecified task)",
+        )
+        task_description = (
+            task_line.split(":", 1)[1].strip() if ":" in task_line else task_line
+        )
+
+        files: list[tuple[str, str]] = []
+        modules: list[tuple[str, str]] = []
+        notes: list[str] = []
+        for line in lines:
+            if line.lower().startswith("file ") and ":" in line:
+                name, detail = line[5:].split(":", 1)
+                files.append((name.strip(), detail.strip()))
+            elif line.lower().startswith("module ") and ":" in line:
+                name, detail = line[7:].split(":", 1)
+                modules.append((name.strip(), detail.strip()))
+            elif any(prefix in line.lower() for prefix in ("risk", "note", "concern")):
+                notes.append(line)
+
+        test_targets = [line for line in lines if "test" in line.lower()]
+
+        plan_lines: list[str] = ["Mock plan:"]
+        plan_lines.append(f"1. Clarify the objective: {task_description}.")
+
+        if files:
+            plan_lines.append("2. Audit current implementation:")
+            for name, detail in files:
+                plan_lines.append(f"   - Review {name} ({detail}).")
+        else:
+            plan_lines.append(
+                "2. Identify which files govern this behaviour and gather relevant history."
+            )
+
+        if modules:
+            plan_lines.append(
+                "3. Model the solution across modules to avoid regressions and duplication:"
+            )
+            for name, detail in modules:
+                plan_lines.append(f"   - Plan changes for module {name} ({detail}).")
+        else:
+            plan_lines.append(
+                "3. Outline the implementation approach, covering data flow, error handling, and edge cases."
+            )
+
+        if notes:
+            plan_lines.append("4. Mitigate known risks before coding:")
+            for note in notes:
+                plan_lines.append(f"   - {note}")
+            step_offset = 5
+        else:
+            plan_lines.append(
+                "4. Anticipate edge cases, performance implications, and opportunities to simplify the design."
+            )
+            step_offset = 5
+
+        if test_targets:
+            plan_lines.append(
+                f"{step_offset}. Extend or add automated tests covering {task_description}."
+            )
+            step_offset += 1
+        else:
+            plan_lines.append(
+                f"{step_offset}. Design new test scenarios to validate {task_description}."
+            )
+            step_offset += 1
+
+        plan_lines.append(
+            f"{step_offset}. Implement the changes incrementally, validating behaviour after each step."
+        )
+        plan_lines.append(
+            f"{step_offset + 1}. Run the full test suite and perform targeted manual verification before shipping."
+        )
+        plan_lines.append(
+            f"{step_offset + 2}. Document decisions and follow-ups so future contributors can iterate even faster."
+        )
+
+        return "\n".join(plan_lines)
+
+    def _generate_summary(self, text: str) -> str:
+        key_lines = [line.strip() for line in text.splitlines() if line.strip()]
         if not key_lines:
             return "(no content)"
-        # Limit the output to a handful of bullet points to mimic concise LLM outputs.
-        bullets = [f"- {line[:120]}" for line in key_lines[:5]]
-        header = "Mock plan" if "plan" in system.lower() else "Mock summary"
-        return f"{header}:\n" + "\n".join(bullets)
+
+        bullets = []
+        for line in key_lines[:5]:
+            truncated = line[:120]
+            if len(line) > 120:
+                truncated += "…"
+            bullets.append(f"- {truncated}")
+
+        return "Mock summary:\n" + "\n".join(bullets)
 
 
 def create_language_model(config: Optional[LLMConfig] = None) -> LanguageModel:
