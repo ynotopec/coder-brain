@@ -69,6 +69,9 @@ class ProjectIndexer:
 
     def describe(self) -> str:
         lines = ["Indexed files:"]
-        for indexed in sorted(self.files.values(), key=lambda f: f.path):
-            lines.append(f"- {indexed.to_summary()}")
+        if not self.files:
+            lines.append("(none found)")
+        else:
+            for indexed in sorted(self.files.values(), key=lambda f: f.path):
+                lines.append(f"- {indexed.to_summary()}")
         return "\n".join(lines)

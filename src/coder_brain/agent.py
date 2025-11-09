@@ -10,6 +10,7 @@ from .indexer import ProjectIndexer
 from .memory import FileContext, LongTermMemory, WorkingMemory
 from .tools.search import search_files, search_index
 from .tools.test_runner import run_tests, RunResult
+from .tools.python_executor import run_python, PythonRunResult
 from .llm import LanguageModel, LLMConfig, create_language_model
 
 
@@ -58,6 +59,12 @@ class CoderBrainAgent:
         self.language_model = language_model or create_language_model(llm_config)
         self.plan: List[PlanStep] = []
         self.module_map: Dict[Path, List[Path]] = {}
+
+    def _relative(self, path: Path) -> Path:
+        try:
+            return path.relative_to(self.root)
+        except ValueError:
+            return path
 
     def bootstrap(self) -> None:
         """Initial scan replicating the human ability to build a mental map."""
@@ -124,6 +131,10 @@ class CoderBrainAgent:
         relevant = self._select_relevant_files(task)
         self._load_working_memory(relevant)
         details = ["Working memory window:", self.working_memory.to_bullet_list() or "(empty)"]
+        if not self.indexer.files:
+            details.append("Project index is currently empty.")
+        elif not relevant:
+            details.append("No indexed files matched the task keywords.")
         if relevant:
             searches = []
             for keyword in task.derive_keywords()[:3]:
@@ -168,6 +179,61 @@ class CoderBrainAgent:
                 details=llm_plan,
             )
         )
+
+        self._simulate_actions(task)
+
+    def _simulate_actions(self, task: Task) -> None:
+        contexts = list(self.working_memory)
+        context_lines = [f"Task: {task.description}"]
+        if contexts:
+            context_lines.append("Working memory focus:")
+            for ctx in contexts:
+                summary = ctx.summary.replace("\n", " ") if ctx.summary else ctx.path.name
+                context_lines.append(
+                    f"- {self._relative(ctx.path)} — {summary}"
+                )
+        else:
+            context_lines.append("Working memory focus:")
+            context_lines.append("- (empty)")
+
+        if task.test_command:
+            context_lines.append(
+                f"Tests: {' '.join(task.test_command)}"
+            )
+
+        simulation = self.language_model.simulate(
+            instructions=(
+                "You simulate how a human developer with limited working memory tackles the task. "
+                "Reference the working set when available, mention using the language model for reasoning, "
+                "and highlight when python execution aids quick validation. Keep the tone observational."
+            ),
+            context="\n".join(context_lines),
+        )
+
+        self.plan.append(
+            PlanStep(
+                summary="Simulated execution walkthrough",
+                details=simulation,
+            )
+        )
+
+    def execute_python(
+        self,
+        code: str,
+        *,
+        cwd: Optional[Path] = None,
+        timeout: int = 30,
+    ) -> PythonRunResult:
+        """Run a python snippet and append the outcome to the plan."""
+
+        result = run_python(code, cwd=cwd, timeout=timeout)
+        self.plan.append(
+            PlanStep(
+                summary="Executed python snippet",
+                details=result.format(),
+            )
+        )
+        return result
 
     def inspect_code(self, pattern: str) -> List[str]:
         """Return formatted lines matching pattern inside current working files."""
