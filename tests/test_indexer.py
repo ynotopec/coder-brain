@@ -14,11 +14,3 @@ def test_indexer_builds_previews(tmp_path):
     assert file_path in indexer.files
     summary = indexer.files[file_path].to_summary()
     assert "module.py" in summary
-
-
-def test_indexer_describe_empty(tmp_path):
-    indexer = ProjectIndexer(tmp_path)
-    indexer.scan()
-
-    description = indexer.describe()
-    assert "(none found)" in description
