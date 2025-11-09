@@ -46,6 +46,8 @@ provided, a deterministic mock model is used. You can also configure a provider 
 export LLM_PROVIDER=openai
 export LLM_MODEL=gpt-4o-mini
 export LLM_API_KEY=sk-...
+# Optional: point to an OpenAI-compatible endpoint (for example, an open source provider)
+export LLM_BASE_URL=http://localhost:8000/v1
 ```
 
 Command-line arguments override environment variables when both are provided.
