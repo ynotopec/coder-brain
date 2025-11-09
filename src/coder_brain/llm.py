@@ -18,6 +18,7 @@ class LLMConfig:
     provider: str
     model: str
     api_key: Optional[str] = None
+    base_url: Optional[str] = None
     max_tokens: int = 1024
     temperature: float = 0.2
 
@@ -30,12 +31,14 @@ class LLMConfig:
         if not provider or not model:
             return None
         api_key = os.getenv(f"{prefix}API_KEY")
+        base_url = os.getenv(f"{prefix}BASE_URL") or os.getenv(f"{prefix}ENDPOINT")
         max_tokens = int(os.getenv(f"{prefix}MAX_TOKENS", "1024"))
         temperature = float(os.getenv(f"{prefix}TEMPERATURE", "0.2"))
         return cls(
             provider=provider,
             model=model,
             api_key=api_key,
+            base_url=base_url,
             max_tokens=max_tokens,
             temperature=temperature,
         )
@@ -186,7 +189,12 @@ def create_language_model(config: Optional[LLMConfig] = None) -> LanguageModel:
 
         class _OpenAIChatModel(LanguageModel):
             def __init__(self, openai_module, cfg: LLMConfig) -> None:
-                self._client = openai_module.OpenAI(api_key=cfg.api_key)
+                client_kwargs: dict[str, object] = {}
+                if cfg.api_key:
+                    client_kwargs["api_key"] = cfg.api_key
+                if cfg.base_url:
+                    client_kwargs["base_url"] = cfg.base_url
+                self._client = openai_module.OpenAI(**client_kwargs)
                 self._config = cfg
 
             def complete(self, *, system: str, user: str) -> str:  # pragma: no cover - network call
