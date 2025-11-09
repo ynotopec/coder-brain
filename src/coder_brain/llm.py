@@ -60,11 +60,6 @@ class LanguageModel:
 
         return self.complete(system=instructions, user=context)
 
-    def simulate(self, *, instructions: str, context: str) -> str:
-        """Generate an execution walkthrough using the language model."""
-
-        return self.complete(system=instructions, user=context)
-
 
 class MockLanguageModel(LanguageModel):
     """Deterministic language model used for tests and offline operation."""
@@ -75,12 +70,7 @@ class MockLanguageModel(LanguageModel):
     def complete(self, *, system: str, user: str) -> str:
         if "plan" in system.lower():
             return self._generate_plan(user)
-        if "simulate" in system.lower() or "walkthrough" in system.lower():
-            return self._generate_simulation(user)
         return self._generate_summary(user)
-
-    def simulate(self, *, instructions: str, context: str) -> str:
-        return self.complete(system=instructions, user=context)
 
     def _generate_plan(self, context: str) -> str:
         lines = [line.strip() for line in context.splitlines() if line.strip()]
@@ -177,28 +167,6 @@ class MockLanguageModel(LanguageModel):
             bullets.append(f"- {truncated}")
 
         return "Mock summary:\n" + "\n".join(bullets)
-
-    def _generate_simulation(self, context: str) -> str:
-        lines = [line.strip() for line in context.splitlines() if line.strip()]
-        task_line = next((line for line in lines if line.lower().startswith("task:")), "Task: (unspecified)")
-        working_memory = [
-            line[2:].strip()
-            for line in lines
-            if line.startswith("- ")
-        ]
-        steps = ["Simulation:"]
-        steps.append(f"1. Re-evaluate {task_line.split(':', 1)[1].strip()} using the language model heuristics.")
-        if working_memory:
-            steps.append("2. Focus on the active working set:")
-            for entry in working_memory:
-                steps.append(f"   - Keep {entry} in short-term memory.")
-            step_index = 3
-        else:
-            steps.append("2. Working memory is empty; ask the language model to identify the first file to inspect.")
-            step_index = 3
-        steps.append(f"{step_index}. When code insight is required, execute targeted python snippets for quick validation.")
-        steps.append(f"{step_index + 1}. Reflect on outcomes and update long-term memory artifacts.")
-        return "\n".join(steps)
 
 
 def create_language_model(config: Optional[LLMConfig] = None) -> LanguageModel:
