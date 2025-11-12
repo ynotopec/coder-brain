@@ -1,3 +1,75 @@
+```mermaid
+flowchart LR
+    %% Utilisateur / Ingress
+    U[Utilisateur\n(Web / IDE / App)] -->|HTTPS| ING[Ingress\n(public)]
+
+    subgraph ns-frontend[Namespace: ai-frontend]
+      OW[Open WebUI\n(Service Chat UI)]
+    end
+
+    subgraph ns-gateway[Namespace: ai-gateway]
+      LT[LiteLLM Proxy\n(API OpenAI-compatible\n+ Tool Calling)]
+    end
+
+    subgraph ns-models[Namespace: ai-models]
+      VLLM[vLLM\n(Serving LLM OSS)]
+      EXTAPI[(LLM externes\n(optionnel))]
+    end
+
+    subgraph ns-knowledge[Namespace: ai-knowledge]
+      MINIO[(MinIO / S3\nDocuments bruts)]
+      PG[(Postgres\nMétadonnées + contextes)]
+      VEC[(Qdrant / pgvector\nIndex vectoriel)]
+    end
+
+    subgraph ns-orchestrator[Namespace: ai-orchestrator]
+      LG[LangGraph\n(Agents / Workflows)]
+      CTX[Context Manager\n(Workspaces, résumés)]
+    end
+
+    subgraph ns-tools[Namespace: ai-tools]
+      T1[Tool: ticketing\n(FastAPI)]
+      T2[Tool: CI/CD\n(Deploy, Jobs)]
+      T3[Tool: Monitoring\n(Logs, Metrics)]
+    end
+
+    subgraph ns-observability[Namespace: ai-observability]
+      LF[Langfuse\n(Tracing LLM / Tools)]
+      PROM[(Prometheus)]
+      GRAF[Grafana]
+    end
+
+    %% Routing principal
+    ING --> OW
+    OW -->|API OpenAI| LT
+
+    LT -->|chat/completions| VLLM
+    LT -->|proxy optionnel| EXTAPI
+
+    %% Appels outils (tool calling)
+    LT -->|tools.*| LG
+
+    LG -->|RAG / search| VEC
+    LG -->|docs| MINIO
+    LG -->|state + metadata| PG
+    LG -->|gestion contexte| CTX
+
+    LG -->|Appels outils| T1
+    LG -->|Appels outils| T2
+    LG -->|Appels outils| T3
+
+    %% Observabilité
+    LT -->|traces| LF
+    LG -->|traces| LF
+    T1 -->|traces| LF
+    T2 -->|traces| LF
+    T3 -->|traces| LF
+
+    LF --> PROM
+    PROM --> GRAF
+
+```
+
 ```
 Chat history
 You said:
