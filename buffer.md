@@ -1,3 +1,126 @@
+## worker
+
+Voici un schéma d’architecture simple pour un système LLM **personnalisé avec mémoire** (nouvel environnement, récurrence, oubli).
+
+---
+
+### 1. Vue d’ensemble (architecture statique)
+
+```mermaid
+flowchart LR
+    subgraph Client
+        U[Utilisateur]
+        UI[Interface (chat, app web)]
+    end
+
+    subgraph Backend IA
+        ORCH[Orchestrateur<br/>(Agent / API)]
+        
+        subgraph MEM[Services de mémoire]
+            MEM_ST[Memoire de session<br/>(cache/Redis)]
+            MEM_LT_DB[(Base de données<br/>(facts structurés))]
+            MEM_LT_VEC[(Vector store<br/>(embeddings))]
+        end
+
+        LLM[LLM stateless]
+        EXTRACTOR[Module d'extraction<br/>et scoring de mémoire]
+        SCHED[Job périodique<br/>(maintenance & oubli)]
+    end
+
+    subgraph SourcesEnv[Environnement & Connaissance]
+        DOCS[Docs internes / WIKI / API]
+        LOGS[Logs / Incidents fréquents]
+    end
+
+    U --> UI --> ORCH
+
+    ORCH --> MEM_ST
+    ORCH --> MEM_LT_DB
+    ORCH --> MEM_LT_VEC
+
+    ORCH -->|contexte + question| LLM -->|réponse| ORCH
+
+    ORCH -->|candidats de mémoire| EXTRACTOR -->|facts + importance| MEM_LT_DB
+    EXTRACTOR --> MEM_LT_VEC
+
+    SCHED --> MEM_LT_DB
+    SCHED --> MEM_LT_VEC
+
+    DOCS --> MEM_LT_VEC
+    DOCS --> MEM_LT_DB
+    LOGS --> MEM_LT_VEC
+    LOGS --> MEM_LT_DB
+```
+
+**Idée :**
+
+* LLM = **juste un moteur de texte**, sans mémoire.
+* Tout ce qui est “environnement”, “habitudes utilisateur”, “infos récurrentes” vit dans **MEM** (DB + vector store + cache).
+* L’**orchestrateur** décide :
+
+  * quoi lire (retrieve),
+  * quoi montrer au LLM (contexte_augmenté),
+  * quoi écrire / mettre à jour (save/forget).
+
+---
+
+### 2. Vue “par requête” (séquence)
+
+```mermaid
+sequenceDiagram
+    participant U as Utilisateur
+    participant UI as Interface
+    participant ORCH as Orchestrateur
+    participant MEM as Services de mémoire
+    participant LLM as LLM
+    participant EXT as Extracteur de faits
+
+    U->>UI: Message utilisateur
+    UI->>ORCH: {user_id, message}
+    ORCH->>MEM: retrieve(user_id, sujet) 
+    MEM-->>ORCH: contexte_pertinent
+
+    ORCH->>LLM: prompt(contexte_pertinent + message)
+    LLM-->>ORCH: réponse
+
+    ORCH->>EXT: analyser(conversation, réponse)
+    EXT-->>ORCH: nouveaux_faits + importance
+    ORCH->>MEM: save(faits_importants)
+
+    ORCH-->>UI: réponse enrichie
+    UI-->>U: Affichage
+```
+
+---
+
+### 3. Règles mémorisation / oubli (où elles vivent ?)
+
+* **Orchestrateur** :
+
+  * applique les règles de **sélection des faits**,
+  * appelle `save_memory()` / `forget_memory()`.
+* **Services de mémoire** :
+
+  * implémentent :
+
+    * TTL, LRU, quotas par user,
+    * tags `persistent`, `ephemeral`, `deprecated`.
+* **Job périodique** :
+
+  * résume les logs récents,
+  * compresse et supprime les éléments peu importants.
+
+---
+
+Si tu veux, prochain step je peux te détailler :
+
+* un **JSON d’API** pour `save_memory/retrieve/forget`,
+* ou une **version “microservice K8S”** (pods dédiés mémoire, orchestrateur, LLM, etc.).
+
+
+---
+
+## coder
 ```mermaid
 flowchart LR
     %% Utilisateur / Ingress
