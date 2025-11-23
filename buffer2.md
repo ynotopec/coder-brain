@@ -6,6 +6,7 @@
 - Contrôle qualité humain : validation ou explication de l'utilisateur si KO.
 - Escalade possible vers un groupe humain pour débloquer.
 - Les corrections validées sont mémorisées (RAG) pour éviter de répéter les erreurs.
+- Gouvernance par retour utilisateur : un indice de confiance est incrémenté/décrémenté selon les feedbacks, influençant la sélection de stratégies.
 
 ```mermaid
 flowchart TD
@@ -44,7 +45,7 @@ flowchart TD
 
 - LLM stateless, orchestrateur décide quoi lire/écrire.
 - Mémoire courte (cache) et longue (DB + vecteurs) synchronisées via extracteur.
-- Job périodique résume, compresse et supprime selon importance/TTL.
+- Job périodique résume, compresse et supprime selon importance/TTL, y compris pour les informations temporaires (TTL strict).
 - Entrées docs/logs alimentent le vector store et la base structurée.
 
 ```mermaid
@@ -103,6 +104,7 @@ flowchart LR
 - Qdrant/pgvector + Postgres + MinIO stockent contexte, états et documents.
 - Outils métier (CI/CD, ticketing, monitoring) exposés comme services séparés.
 - Langfuse + Prometheus/Grafana assurent traçabilité et observabilité.
+- Exploitation avancée (SLO, coûts, sécurité renforcée) à traiter après validation de l'utilité en production pilote.
 
 ```mermaid
 flowchart LR
