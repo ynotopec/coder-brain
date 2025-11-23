@@ -9,16 +9,16 @@ Le système ne se contente plus de répondre, il **capitalise** sur les correcti
 flowchart TD
     Start([User Input]) --> Router{"Analyze intent\nSelect tool?"}
 
-    Router -->|Simple or chit-chat| DirectLLM[LLM (no context)]
-    Router -->|Internal info| Retrieval[RAG: retrieve docs]
-    Router -->|External info| WebSearch[Internet search]
-    Router -->|Action or task| PlanTask[Plan and execute task]
+    Router -->|Simple or chit chat| DirectLLM["LLM (no context)"]
+    Router -->|Internal info| Retrieval["RAG: retrieve docs"]
+    Router -->|External info| WebSearch["Internet search"]
+    Router -->|Action or task| PlanTask["Plan and execute task"]
 
     Retrieval --> CheckSize{"Context small enough?"}
     WebSearch --> CheckSize
     PlanTask --> CheckSize
-    CheckSize -->|Yes| OutputGen[LLM generates response]
-    CheckSize -->|No| Reduce[Summarize or extract key info]
+    CheckSize -->|Yes| OutputGen["LLM generates response"]
+    CheckSize -->|No| Reduce["Summarize or extract key info"]
     Reduce --> OutputGen
     DirectLLM --> OutputGen
 
