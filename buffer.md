@@ -7,79 +7,35 @@ Le système ne se contente plus de répondre, il **capitalise** sur les correcti
 
 ```mermaid
 flowchart TD
-    %% --- STYLES ---
-    classDef decision fill:#f9f,stroke:#333,stroke-width:2px,color:black;
-    classDef process fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:black;
-    classDef human fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:black;
-    classDef learning fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px,color:black;
-    classDef output fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:black;
+    Start([User Input]) --> Router{Analyze Intent<br/>Which Tool?}
 
-    %% --- NODES ---
-    Start([User Input])
-    Router{Analyze Intent<br/>Which Tool?}
-    DirectLLM[LLM (No Context)]
-    Retrieval[RAG: Retrieve Docs]
-    WebSearch[Internet Search]
-    PlanTask[Plan & Execute Task]
-    CheckSize{Context Small Enough?}
-    Reduce[Summarize / Extract Key Info]
-    OutputGen[LLM Generates Response]
-    UserCheck{User Validation<br/>Is OK?}
-    AskWhy[Ask User: 'Why is it KO?']
-    HumanExplain[User Details Correction]
-    StrategySwitch{Strategy Change?}
-    Refine[Update Context with User Feedback]
-    AskGroup[Escalate to Group/Community]
-    GroupAnswer[Human Answer Received]
-    IsNewKnowledge{Was it corrected<br/>or from Group?}
-    MemoryUpdate[📥 SAVE to Vector DB/RAG<br/>(Continuous Learning)]
-    End([Final Output])
+    Router -->|Simple / Chit-chat| DirectLLM[LLM (No Context)]
+    Router -->|Internal Info| Retrieval[RAG: Retrieve Docs]
+    Router -->|External Info| WebSearch[Internet Search]
+    Router -->|Action / Task| PlanTask[Plan & Execute Task]
 
-    %% --- FLOWS ---
-    Start --> Router
-
-    Router -- "Simple / Chit-chat" --> DirectLLM
+    Retrieval --> CheckSize{Context Small Enough?}
+    WebSearch --> CheckSize
+    PlanTask --> CheckSize
+    CheckSize -->|Yes| OutputGen[LLM Generates Response]
+    CheckSize -->|No| Reduce[Summarize / Extract Key Info]
+    Reduce --> OutputGen
     DirectLLM --> OutputGen
 
-    Router -- "Internal Info" --> Retrieval
-    Retrieval --> CheckSize
-
-    Router -- "External Info" --> WebSearch
-    WebSearch --> CheckSize
-
-    Router -- "Action / Task" --> PlanTask
-    PlanTask --> CheckSize
-
-    CheckSize -- Yes --> OutputGen
-    CheckSize -- No --> Reduce
-    Reduce --> OutputGen
-
-    OutputGen --> UserCheck
-
-    UserCheck -- KO --> AskWhy
-    AskWhy --> HumanExplain
-    HumanExplain --> StrategySwitch
-
-    StrategySwitch -- "Refine Prompt" --> Refine
+    OutputGen --> UserCheck{User Validation<br/>Is OK?}
+    UserCheck -->|KO| AskWhy[Ask User: "Why is it KO?"]
+    AskWhy --> HumanExplain[User Details Correction]
+    HumanExplain --> StrategySwitch{Strategy Change?}
+    StrategySwitch -->|Refine Prompt| Refine[Update Context with User Feedback]
+    StrategySwitch -->|Don't Know → Ask Humans| AskGroup[Escalate to Group/Community]
     Refine --> OutputGen
-
-    StrategySwitch -- "Don't Know -> Ask Humans" --> AskGroup
-    AskGroup --> GroupAnswer
+    AskGroup --> GroupAnswer[Human Answer Received]
     GroupAnswer --> OutputGen
 
-    UserCheck -- OK --> IsNewKnowledge
-    IsNewKnowledge -- "Yes (Learned)" --> MemoryUpdate
-    IsNewKnowledge -- "No (Standard)" --> End
+    UserCheck -->|OK| IsNewKnowledge{Was it corrected<br/>or from Group?}
+    IsNewKnowledge -->|Yes (Learned)| MemoryUpdate[Save to Vector DB/RAG<br/>(Continuous Learning)]
+    IsNewKnowledge -->|No (Standard)| End([Final Output])
     MemoryUpdate --> End
-
-    %% --- CLASS APPLICATION ---
-    class Router,CheckSize,IsNewKnowledge,StrategySwitch decision;
-    class DirectLLM,Retrieval,WebSearch,PlanTask,Reduce,Refine process;
-    class AskWhy,HumanExplain,AskGroup,GroupAnswer,UserCheck human;
-    class MemoryUpdate learning;
-    class OutputGen output;
-
-    linkStyle default stroke-width:2px,fill:none,stroke:gray;
 ```
 
 ### Les 3 Moteurs de ce Diagramme
