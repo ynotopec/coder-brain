@@ -1,3 +1,96 @@
+## student
+Voici le diagramme complet et optimisé. J'ai intégré ta vision cruciale : **l'Apprentissage (Learning)**.
+
+Le système ne se contente plus de répondre, il **capitalise** sur les corrections humaines et les réponses du groupe pour enrichir sa propre mémoire (RAG) afin de ne plus faire les mêmes erreurs.
+
+### Le Flux "Brain Agent" Optimisé (avec Apprentissage)
+
+```mermaid
+graph TD
+    %% --- STYLES ---
+    classDef decision fill:#f9f,stroke:#333,stroke-width:2px,color:black;
+    classDef process fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:black;
+    classDef human fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:black;
+    classDef learning fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px,color:black;
+    classDef output fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:black;
+
+    %% --- DEBUT ---
+    Start([User Input]) --> Router{Analyze Intent:\nWhich Tool?}:::decision
+
+    %% --- BRANCHE 1: LLM DIRECT ---
+    Router -- "Simple / Chit-chat" --> DirectLLM[LLM (No Context)]:::process
+    DirectLLM --> OutputGen
+
+    %% --- BRANCHE 2: RAG (INTERNE) ---
+    Router -- "Internal Info" --> Retrieval[RAG: Retrieve Docs]:::process
+    Retrieval --> CheckSize
+
+    %% --- BRANCHE 3: INTERNET ---
+    Router -- "External Info" --> WebSearch[Internet Search]:::process
+    WebSearch --> CheckSize
+
+    %% --- BRANCHE 4: TASK ---
+    Router -- "Action / Task" --> PlanTask[Plan & Execute Task]:::process
+    PlanTask --> CheckSize
+
+    %% --- GESTION CONTEXTE (OPTIMISATION) ---
+    CheckSize{Context Small Enough?}:::decision
+    CheckSize -- "Yes" --> OutputGen
+    CheckSize -- "No" --> Reduce[Summarize / Extract Key Info]:::process
+    Reduce --> OutputGen
+
+    %% --- GENERATION & VALIDATION ---
+    OutputGen[LLM Generates Response]:::output --> UserCheck{User Validation:\nIs OK?}:::human
+
+    %% --- CAS KO (BOUCLE DE CORRECTION HUMAINE) ---
+    UserCheck -- "KO" --> AskWhy[Ask User: 'Why is it KO?']:::human
+    AskWhy --> HumanExplain[User Details Correction]:::human
+    HumanExplain --> StrategySwitch{Strategy Change?}:::decision
+
+    %% Choix stratégique après erreur
+    StrategySwitch -- "Refine Prompt" --> Refine[Update Context with User Feedback]:::process
+    Refine --> OutputGen
+    
+    StrategySwitch -- "Don't Know -> Ask Humans" --> AskGroup[Escalate to Group/Community]:::human
+    AskGroup --> GroupAnswer[Human Answer Received]:::human
+    GroupAnswer --> OutputGen
+
+    %% --- CAS OK (APPRENTISSAGE & FIN) ---
+    UserCheck -- "OK" --> IsNewKnowledge{Was it corrected\nor from Group?}:::decision
+    
+    IsNewKnowledge -- "Yes (Learned)" --> MemoryUpdate[📥 SAVE to Vector DB/RAG\n(Continuous Learning)]:::learning
+    IsNewKnowledge -- "No (Standard)" --> End([Final Output])
+    
+    MemoryUpdate --> End
+
+    %% Liens retours
+    linkStyle default stroke-width:2px,fill:none,stroke:gray;
+```
+
+### Les 3 Moteurs de ce Diagramme
+
+Ce schéma est divisé en trois logiques distinctes qui le rendent "puissant" :
+
+1.  **Le Moteur d'Exécution (En Bleu/Rose) :**
+    *   C'est ton flux classique. Le routeur décide intelligemment s'il faut utiliser sa mémoire interne, internet, ou juste ses capacités linguistiques.
+    *   L'étape `Context Small Enough?` garantit que tu ne plantes pas le LLM avec trop de données.
+
+2.  **La Boucle de Correction Humaine (En Jaune) :**
+    *   C'est ici que se joue la qualité. Si l'utilisateur dit **KO**, on ne fait pas un "retry" aveugle.
+    *   On demande **"Pourquoi ?"**.
+    *   Si l'IA est coincée, elle passe en mode **Escalade** (`Ask Group`) : elle va chercher la réponse auprès d'autres humains (via chat/slack/etc).
+
+3.  **Le Moteur d'Apprentissage (En Vert - LE PLUS IMPORTANT) :**
+    *   C'est la partie `SAVE to Vector DB`.
+    *   Si la réponse a nécessité une correction de l'utilisateur ou une aide du groupe, **le système enregistre cette interaction**.
+    *   **Résultat :** La prochaine fois que le `Router` cherchera dans `Internal Info`, il trouvera cette réponse validée. L'agent devient plus intelligent à chaque erreur corrigée.
+
+### Résumé du comportement
+*   **L'utilisateur** est le juge et le professeur.
+*   **Le Groupe** est le filet de sécurité.
+*   **L'Agent** est l'élève qui note tout dans son carnet (RAG) pour devenir autonome.
+
+
 ## worker
 
 Voici un schéma d’architecture simple pour un système LLM **personnalisé avec mémoire** (nouvel environnement, récurrence, oubli).
