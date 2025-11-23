@@ -25,7 +25,7 @@ flowchart TD
     Reduce[Summarize / Extract Key Info]
     OutputGen[LLM Generates Response]
     UserCheck{User Validation<br/>Is OK?}
-    AskWhy[Ask User: "Why is it KO?"]
+    AskWhy[Ask User: 'Why is it KO?']
     HumanExplain[User Details Correction]
     StrategySwitch{Strategy Change?}
     Refine[Update Context with User Feedback]
