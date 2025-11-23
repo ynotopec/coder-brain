@@ -7,34 +7,34 @@ Le système ne se contente plus de répondre, il **capitalise** sur les correcti
 
 ```mermaid
 flowchart TD
-    Start([User Input]) --> Router{Analyze Intent<br/>Which Tool?}
+    Start([User Input]) --> Router{"Analyze intent\nSelect tool?"}
 
-    Router -->|Simple or chit-chat| DirectLLM[LLM (No Context)]
-    Router -->|Internal Info| Retrieval[RAG: Retrieve Docs]
-    Router -->|External Info| WebSearch[Internet Search]
-    Router -->|Action / Task| PlanTask[Plan & Execute Task]
+    Router -->|Simple or chit-chat| DirectLLM[LLM (no context)]
+    Router -->|Internal info| Retrieval[RAG: retrieve docs]
+    Router -->|External info| WebSearch[Internet search]
+    Router -->|Action or task| PlanTask[Plan and execute task]
 
-    Retrieval --> CheckSize{Context Small Enough?}
+    Retrieval --> CheckSize{"Context small enough?"}
     WebSearch --> CheckSize
     PlanTask --> CheckSize
-    CheckSize -->|Yes| OutputGen[LLM Generates Response]
-    CheckSize -->|No| Reduce[Summarize / Extract Key Info]
+    CheckSize -->|Yes| OutputGen[LLM generates response]
+    CheckSize -->|No| Reduce[Summarize or extract key info]
     Reduce --> OutputGen
     DirectLLM --> OutputGen
 
-    OutputGen --> UserCheck{User Validation<br/>Is OK?}
-    UserCheck -->|KO| AskWhy[Ask User: Why is it KO?]
-    AskWhy --> HumanExplain[User Details Correction]
-    HumanExplain --> StrategySwitch{Strategy Change?}
-    StrategySwitch -->|Refine Prompt| Refine[Update Context with User Feedback]
-    StrategySwitch -->|Ask humans| AskGroup[Escalate to Group/Community]
+    OutputGen --> UserCheck{"User validation\nIs it OK?"}
+    UserCheck -->|KO| AskWhy[Ask user why it is KO]
+    AskWhy --> HumanExplain[User details correction]
+    HumanExplain --> StrategySwitch{"Strategy change?"}
+    StrategySwitch -->|Refine prompt| Refine[Update context with user feedback]
+    StrategySwitch -->|Ask humans| AskGroup[Escalate to group or community]
     Refine --> OutputGen
-    AskGroup --> GroupAnswer[Human Answer Received]
+    AskGroup --> GroupAnswer[Human answer received]
     GroupAnswer --> OutputGen
 
-    UserCheck -->|OK| IsNewKnowledge{Corrected or from Group?}
-    IsNewKnowledge -->|Yes (Learned)| MemoryUpdate[Save to Vector DB/RAG<br/>(Continuous Learning)]
-    IsNewKnowledge -->|No (Standard)| End([Final Output])
+    UserCheck -->|OK| IsNewKnowledge{"Corrected or from group?"}
+    IsNewKnowledge -->|Yes (learned)| MemoryUpdate[Save to vector DB/RAG\n(continuous learning)]
+    IsNewKnowledge -->|No (standard)| End([Final Output])
     MemoryUpdate --> End
 ```
 
