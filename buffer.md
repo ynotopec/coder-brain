@@ -7,7 +7,7 @@ Le système ne se contente plus de répondre, il **capitalise** sur les correcti
 
 ```mermaid
 flowchart TD
-    Start([User Input]) --> Router{"Analyze intent\nSelect tool?"}
+    Start([User Input]) --> Router{"Analyze intent<br/>Select tool?"}
 
     Router -->|Simple or chit chat| DirectLLM["LLM (no context)"]
     Router -->|Internal info| Retrieval["RAG: retrieve docs"]
@@ -22,7 +22,7 @@ flowchart TD
     Reduce --> OutputGen
     DirectLLM --> OutputGen
 
-    OutputGen --> UserCheck{"User validation\nIs it OK?"}
+    OutputGen --> UserCheck{"User validation<br/>Is it OK?"}
     UserCheck -->|KO| AskWhy[Ask user why it is KO]
     AskWhy --> HumanExplain[User details correction]
     HumanExplain --> StrategySwitch{"Strategy change?"}
@@ -33,7 +33,7 @@ flowchart TD
     GroupAnswer --> OutputGen
 
     UserCheck -->|OK| IsNewKnowledge{"Corrected or from group?"}
-    IsNewKnowledge -->|Yes (learned)| MemoryUpdate[Save to vector DB/RAG\n(continuous learning)]
+    IsNewKnowledge -->|Yes (learned)| MemoryUpdate[Save to vector DB/RAG<br/>(continuous learning)]
     IsNewKnowledge -->|No (standard)| End([Final Output])
     MemoryUpdate --> End
 ```
@@ -191,40 +191,40 @@ Si tu veux, prochain step je peux te détailler :
 ```mermaid
 flowchart LR
     %% Utilisateur / Ingress
-    U["Utilisateur\n(Web / IDE / App)"] -->|HTTPS| ING["Ingress\n(public)"]
+    U["Utilisateur<br/>(Web / IDE / App)"] -->|HTTPS| ING["Ingress<br/>(public)"]
 
     subgraph ns-frontend[Namespace: ai-frontend]
-      OW["Open WebUI\n(Service Chat UI)"]
+      OW["Open WebUI<br/>(Service Chat UI)"]
     end
 
     subgraph ns-gateway[Namespace: ai-gateway]
-      LT["LiteLLM Proxy\n(API OpenAI-compatible\n+ Tool Calling)"]
+      LT["LiteLLM Proxy<br/>(API OpenAI-compatible<br/>+ Tool Calling)"]
     end
 
     subgraph ns-models[Namespace: ai-models]
-      VLLM["vLLM\n(Serving LLM OSS)"]
-      EXTAPI["LLM externes\n(optionnel)"]
+      VLLM["vLLM<br/>(Serving LLM OSS)"]
+      EXTAPI["LLM externes<br/>(optionnel)"]
     end
 
     subgraph ns-knowledge[Namespace: ai-knowledge]
-      MINIO["MinIO / S3\nDocuments bruts"]
-      PG["Postgres\nMétadonnées + contextes"]
-      VEC["Qdrant / pgvector\nIndex vectoriel"]
+      MINIO["MinIO / S3<br/>Documents bruts"]
+      PG["Postgres<br/>Métadonnées + contextes"]
+      VEC["Qdrant / pgvector<br/>Index vectoriel"]
     end
 
     subgraph ns-orchestrator[Namespace: ai-orchestrator]
-      LG["LangGraph\n(Agents / Workflows)"]
-      CTX["Context Manager\n(Workspaces, résumés)"]
+      LG["LangGraph<br/>(Agents / Workflows)"]
+      CTX["Context Manager<br/>(Workspaces, résumés)"]
     end
 
     subgraph ns-tools[Namespace: ai-tools]
-      T1["Tool: ticketing\n(FastAPI)"]
-      T2["Tool: CI/CD\n(Deploy, Jobs)"]
-      T3["Tool: Monitoring\n(Logs, Metrics)"]
+      T1["Tool: ticketing<br/>(FastAPI)"]
+      T2["Tool: CI/CD<br/>(Deploy, Jobs)"]
+      T3["Tool: Monitoring<br/>(Logs, Metrics)"]
     end
 
     subgraph ns-observability[Namespace: ai-observability]
-      LF["Langfuse\n(Tracing LLM / Tools)"]
+      LF["Langfuse<br/>(Tracing LLM / Tools)"]
       PROM[(Prometheus)]
       GRAF[Grafana]
     end
