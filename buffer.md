@@ -18,48 +18,48 @@ graph TD
     Start([User Input]) --> Router{Analyze Intent:\nWhich Tool?}:::decision
 
     %% --- BRANCHE 1: LLM DIRECT ---
-    Router -- "Simple / Chit-chat" --> DirectLLM[LLM (No Context)]:::process
+    Router --|Simple / Chit-chat|--> DirectLLM[LLM (No Context)]:::process
     DirectLLM --> OutputGen
 
     %% --- BRANCHE 2: RAG (INTERNE) ---
-    Router -- "Internal Info" --> Retrieval[RAG: Retrieve Docs]:::process
+    Router --|Internal Info|--> Retrieval[RAG: Retrieve Docs]:::process
     Retrieval --> CheckSize
 
     %% --- BRANCHE 3: INTERNET ---
-    Router -- "External Info" --> WebSearch[Internet Search]:::process
+    Router --|External Info|--> WebSearch[Internet Search]:::process
     WebSearch --> CheckSize
 
     %% --- BRANCHE 4: TASK ---
-    Router -- "Action / Task" --> PlanTask[Plan & Execute Task]:::process
+    Router --|Action / Task|--> PlanTask[Plan & Execute Task]:::process
     PlanTask --> CheckSize
 
     %% --- GESTION CONTEXTE (OPTIMISATION) ---
     CheckSize{Context Small Enough?}:::decision
-    CheckSize -- "Yes" --> OutputGen
-    CheckSize -- "No" --> Reduce[Summarize / Extract Key Info]:::process
+    CheckSize --|Yes|--> OutputGen
+    CheckSize --|No|--> Reduce[Summarize / Extract Key Info]:::process
     Reduce --> OutputGen
 
     %% --- GENERATION & VALIDATION ---
     OutputGen[LLM Generates Response]:::output --> UserCheck{User Validation:\nIs OK?}:::human
 
     %% --- CAS KO (BOUCLE DE CORRECTION HUMAINE) ---
-    UserCheck -- "KO" --> AskWhy[Ask User: 'Why is it KO?']:::human
+    UserCheck --|KO|--> AskWhy[Ask User: 'Why is it KO?']:::human
     AskWhy --> HumanExplain[User Details Correction]:::human
     HumanExplain --> StrategySwitch{Strategy Change?}:::decision
 
     %% Choix stratégique après erreur
-    StrategySwitch -- "Refine Prompt" --> Refine[Update Context with User Feedback]:::process
+    StrategySwitch --|Refine Prompt|--> Refine[Update Context with User Feedback]:::process
     Refine --> OutputGen
     
-    StrategySwitch -- "Don't Know -> Ask Humans" --> AskGroup[Escalate to Group/Community]:::human
+    StrategySwitch --|Don't Know -> Ask Humans|--> AskGroup[Escalate to Group/Community]:::human
     AskGroup --> GroupAnswer[Human Answer Received]:::human
     GroupAnswer --> OutputGen
 
     %% --- CAS OK (APPRENTISSAGE & FIN) ---
-    UserCheck -- "OK" --> IsNewKnowledge{Was it corrected\nor from Group?}:::decision
+    UserCheck --|OK|--> IsNewKnowledge{Was it corrected\nor from Group?}:::decision
     
-    IsNewKnowledge -- "Yes (Learned)" --> MemoryUpdate[📥 SAVE to Vector DB/RAG\n(Continuous Learning)]:::learning
-    IsNewKnowledge -- "No (Standard)" --> End([Final Output])
+    IsNewKnowledge --|Yes (Learned)|--> MemoryUpdate[📥 SAVE to Vector DB/RAG\n(Continuous Learning)]:::learning
+    IsNewKnowledge --|No (Standard)|--> End([Final Output])
     
     MemoryUpdate --> End
 
@@ -101,39 +101,42 @@ Voici un schéma d’architecture simple pour un système LLM **personnalisé av
 
 ```mermaid
 flowchart LR
-    subgraph Client
-        U[Utilisateur]
-        UI[Interface (chat, app web)]
+    subgraph "Client"
+        U["Utilisateur"]
+        UI["Interface (chat, app web)"]
     end
 
-    subgraph Backend IA
-        ORCH[Orchestrateur<br/>(Agent / API)]
-        
-        subgraph MEM[Services de mémoire]
-            MEM_ST[Memoire de session<br/>(cache/Redis)]
-            MEM_LT_DB[(Base de données<br/>(facts structurés))]
-            MEM_LT_VEC[(Vector store<br/>(embeddings))]
+    subgraph "Backend IA"
+        ORCH["Orchestrateur<br/>(Agent / API)"]
+
+        subgraph MEM["Services de mémoire"]
+            MEM_ST["Memoire de session<br/>(cache/Redis)"]
+            MEM_LT_DB[("Base de données<br/>(facts structurés)")]
+            MEM_LT_VEC[("Vector store<br/>(embeddings)")]
         end
 
-        LLM[LLM stateless]
-        EXTRACTOR[Module d'extraction<br/>et scoring de mémoire]
-        SCHED[Job périodique<br/>(maintenance & oubli)]
+        LLM["LLM stateless"]
+        EXTRACTOR["Module d'extraction<br/>et scoring de mémoire"]
+        SCHED["Job périodique<br/>(maintenance & oubli)"]
     end
 
-    subgraph SourcesEnv[Environnement & Connaissance]
-        DOCS[Docs internes / WIKI / API]
-        LOGS[Logs / Incidents fréquents]
+    subgraph SourcesEnv["Environnement & Connaissance"]
+        DOCS["Docs internes / WIKI / API"]
+        LOGS["Logs / Incidents fréquents"]
     end
 
-    U --> UI --> ORCH
+    U --> UI
+    UI --> ORCH
 
     ORCH --> MEM_ST
     ORCH --> MEM_LT_DB
     ORCH --> MEM_LT_VEC
 
-    ORCH -->|contexte + question| LLM -->|réponse| ORCH
+    ORCH -->|contexte + question| LLM
+    LLM -->|réponse| ORCH
 
-    ORCH -->|candidats de mémoire| EXTRACTOR -->|facts + importance| MEM_LT_DB
+    ORCH -->|candidats de mémoire| EXTRACTOR
+    EXTRACTOR -->|facts + importance| MEM_LT_DB
     EXTRACTOR --> MEM_LT_VEC
 
     SCHED --> MEM_LT_DB
