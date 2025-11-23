@@ -7,9 +7,9 @@ Le système ne se contente plus de répondre, il **capitalise** sur les correcti
 
 ```mermaid
 flowchart TD
-    Start([User Input]) --> Router{Analyze Intent\nWhich Tool?}
+    Start([User Input]) --> Router{Analyze Intent<br/>Which Tool?}
 
-    Router -->|"Simple or chit-chat"| DirectLLM[LLM (No Context)]
+    Router -->|Simple or chit-chat| DirectLLM[LLM (No Context)]
     Router -->|Internal Info| Retrieval[RAG: Retrieve Docs]
     Router -->|External Info| WebSearch[Internet Search]
     Router -->|Action / Task| PlanTask[Plan & Execute Task]
@@ -22,18 +22,18 @@ flowchart TD
     Reduce --> OutputGen
     DirectLLM --> OutputGen
 
-    OutputGen --> UserCheck{User Validation\nIs OK?}
-    UserCheck -->|KO| AskWhy[Ask User: "Why is it KO?"]
+    OutputGen --> UserCheck{User Validation<br/>Is OK?}
+    UserCheck -->|KO| AskWhy[Ask User: Why is it KO?]
     AskWhy --> HumanExplain[User Details Correction]
     HumanExplain --> StrategySwitch{Strategy Change?}
     StrategySwitch -->|Refine Prompt| Refine[Update Context with User Feedback]
-    StrategySwitch -->|"Ask humans"| AskGroup[Escalate to Group/Community]
+    StrategySwitch -->|Ask humans| AskGroup[Escalate to Group/Community]
     Refine --> OutputGen
     AskGroup --> GroupAnswer[Human Answer Received]
     GroupAnswer --> OutputGen
 
     UserCheck -->|OK| IsNewKnowledge{Corrected or from Group?}
-    IsNewKnowledge -->|Yes (Learned)| MemoryUpdate[Save to Vector DB/RAG\n(Continuous Learning)]
+    IsNewKnowledge -->|Yes (Learned)| MemoryUpdate[Save to Vector DB/RAG<br/>(Continuous Learning)]
     IsNewKnowledge -->|No (Standard)| End([Final Output])
     MemoryUpdate --> End
 ```
