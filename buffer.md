@@ -6,7 +6,7 @@ Le système ne se contente plus de répondre, il **capitalise** sur les correcti
 ### Le Flux "Brain Agent" Optimisé (avec Apprentissage)
 
 ```mermaid
-graph TD
+flowchart TD
     %% --- STYLES ---
     classDef decision fill:#f9f,stroke:#333,stroke-width:2px,color:black;
     classDef process fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:black;
@@ -14,56 +14,71 @@ graph TD
     classDef learning fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px,color:black;
     classDef output fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:black;
 
-    %% --- DEBUT ---
-    Start([User Input]) --> Router{Analyze Intent:\nWhich Tool?}:::decision
+    %% --- NODES ---
+    Start([User Input])
+    Router{Analyze Intent<br/>Which Tool?}
+    DirectLLM[LLM (No Context)]
+    Retrieval[RAG: Retrieve Docs]
+    WebSearch[Internet Search]
+    PlanTask[Plan & Execute Task]
+    CheckSize{Context Small Enough?}
+    Reduce[Summarize / Extract Key Info]
+    OutputGen[LLM Generates Response]
+    UserCheck{User Validation<br/>Is OK?}
+    AskWhy[Ask User: "Why is it KO?"]
+    HumanExplain[User Details Correction]
+    StrategySwitch{Strategy Change?}
+    Refine[Update Context with User Feedback]
+    AskGroup[Escalate to Group/Community]
+    GroupAnswer[Human Answer Received]
+    IsNewKnowledge{Was it corrected<br/>or from Group?}
+    MemoryUpdate[📥 SAVE to Vector DB/RAG<br/>(Continuous Learning)]
+    End([Final Output])
 
-    %% --- BRANCHE 1: LLM DIRECT ---
-    Router --|Simple / Chit-chat|--> DirectLLM[LLM (No Context)]:::process
+    %% --- FLOWS ---
+    Start --> Router
+
+    Router -- "Simple / Chit-chat" --> DirectLLM
     DirectLLM --> OutputGen
 
-    %% --- BRANCHE 2: RAG (INTERNE) ---
-    Router --|Internal Info|--> Retrieval[RAG: Retrieve Docs]:::process
+    Router -- "Internal Info" --> Retrieval
     Retrieval --> CheckSize
 
-    %% --- BRANCHE 3: INTERNET ---
-    Router --|External Info|--> WebSearch[Internet Search]:::process
+    Router -- "External Info" --> WebSearch
     WebSearch --> CheckSize
 
-    %% --- BRANCHE 4: TASK ---
-    Router --|Action / Task|--> PlanTask[Plan & Execute Task]:::process
+    Router -- "Action / Task" --> PlanTask
     PlanTask --> CheckSize
 
-    %% --- GESTION CONTEXTE (OPTIMISATION) ---
-    CheckSize{Context Small Enough?}:::decision
-    CheckSize --|Yes|--> OutputGen
-    CheckSize --|No|--> Reduce[Summarize / Extract Key Info]:::process
+    CheckSize -- Yes --> OutputGen
+    CheckSize -- No --> Reduce
     Reduce --> OutputGen
 
-    %% --- GENERATION & VALIDATION ---
-    OutputGen[LLM Generates Response]:::output --> UserCheck{User Validation:\nIs OK?}:::human
+    OutputGen --> UserCheck
 
-    %% --- CAS KO (BOUCLE DE CORRECTION HUMAINE) ---
-    UserCheck --|KO|--> AskWhy[Ask User: 'Why is it KO?']:::human
-    AskWhy --> HumanExplain[User Details Correction]:::human
-    HumanExplain --> StrategySwitch{Strategy Change?}:::decision
+    UserCheck -- KO --> AskWhy
+    AskWhy --> HumanExplain
+    HumanExplain --> StrategySwitch
 
-    %% Choix stratégique après erreur
-    StrategySwitch --|Refine Prompt|--> Refine[Update Context with User Feedback]:::process
+    StrategySwitch -- "Refine Prompt" --> Refine
     Refine --> OutputGen
-    
-    StrategySwitch --|Don't Know -> Ask Humans|--> AskGroup[Escalate to Group/Community]:::human
-    AskGroup --> GroupAnswer[Human Answer Received]:::human
+
+    StrategySwitch -- "Don't Know -> Ask Humans" --> AskGroup
+    AskGroup --> GroupAnswer
     GroupAnswer --> OutputGen
 
-    %% --- CAS OK (APPRENTISSAGE & FIN) ---
-    UserCheck --|OK|--> IsNewKnowledge{Was it corrected\nor from Group?}:::decision
-    
-    IsNewKnowledge --|Yes (Learned)|--> MemoryUpdate[📥 SAVE to Vector DB/RAG\n(Continuous Learning)]:::learning
-    IsNewKnowledge --|No (Standard)|--> End([Final Output])
-    
+    UserCheck -- OK --> IsNewKnowledge
+    IsNewKnowledge -- "Yes (Learned)" --> MemoryUpdate
+    IsNewKnowledge -- "No (Standard)" --> End
     MemoryUpdate --> End
 
-    %% Liens retours
+    %% --- CLASS APPLICATION ---
+    class Router,CheckSize,IsNewKnowledge,StrategySwitch decision;
+    class DirectLLM,Retrieval,WebSearch,PlanTask,Reduce,Refine process;
+    class AskWhy,HumanExplain,AskGroup,GroupAnswer,UserCheck human;
+    class MemoryUpdate learning;
+    class OutputGen output;
+
     linkStyle default stroke-width:2px,fill:none,stroke:gray;
 ```
 
