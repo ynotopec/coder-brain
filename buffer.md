@@ -33,8 +33,8 @@ flowchart TD
     GroupAnswer --> OutputGen
 
     UserCheck -->|OK| IsNewKnowledge{"Corrected or from group?"}
-    IsNewKnowledge -->|Yes (learned)| MemoryUpdate[Save to vector DB/RAG<br/>(continuous learning)]
-    IsNewKnowledge -->|No (standard)| End([Final Output])
+    IsNewKnowledge -->|Yes, learned| MemoryUpdate[Save to vector DB/RAG<br/>(continuous learning)]
+    IsNewKnowledge -->|No, standard| End([Final Output])
     MemoryUpdate --> End
 ```
 
