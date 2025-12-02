@@ -28,6 +28,10 @@ class WorkingMemory:
 
     limit: int = 7
     _slots: List[FileContext] = field(default_factory=list)
+    _langchain_memory: Optional[object] = field(default=None, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._langchain_memory = self._maybe_create_langchain_memory()
 
     def reset(self) -> None:
         self._slots.clear()
@@ -37,6 +41,15 @@ class WorkingMemory:
 
         for context in contexts:
             self._add_context(context)
+            if self._langchain_memory:  # pragma: no cover - optional dependency path
+                try:
+                    self._langchain_memory.save_context(
+                        inputs={"file": str(context.path)},
+                        outputs={"summary": context.summary},
+                    )
+                except Exception:
+                    # Do not fail the agent if the optional stack is unavailable at runtime.
+                    self._langchain_memory = None
 
     def _add_context(self, context: FileContext) -> None:
         if context in self._slots:
@@ -50,6 +63,13 @@ class WorkingMemory:
 
     def __iter__(self):
         return iter(self._slots)
+
+    def _maybe_create_langchain_memory(self):
+        try:  # pragma: no cover - optional dependency path
+            from langchain.memory import ConversationBufferWindowMemory
+        except Exception:
+            return None
+        return ConversationBufferWindowMemory(k=self.limit, return_messages=True)
 
 
 @dataclass

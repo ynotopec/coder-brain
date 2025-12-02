@@ -200,3 +200,36 @@ class CoderBrainAgent:
 
         sections = [step.format() for step in self.plan]
         return "\n\n".join(sections)
+
+    def perform_task(
+        self,
+        task: Task,
+        *,
+        search_pattern: Optional[str] = None,
+        refresh_index: bool = True,
+    ) -> str:
+        """Execute the full pipeline for a task from indexing to validation.
+
+        The method mirrors a human operator performing an end-to-end iteration:
+
+        1. Optionally rebuild the project map (index + summaries).
+        2. Build a plan aligned with the task description and long-term memory.
+        3. Inspect relevant code for the provided search pattern.
+        4. Execute the declared test command.
+        5. Return a consolidated report ready to share with a teammate.
+        """
+
+        if refresh_index or not self.indexer.files:
+            self.bootstrap()
+        else:
+            self.plan.clear()
+
+        self.create_plan(task)
+
+        if search_pattern:
+            self.inspect_code(search_pattern)
+
+        if task.test_command:
+            self.run_task_tests(task)
+
+        return self.report()
