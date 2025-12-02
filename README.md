@@ -18,6 +18,23 @@ Prototype implementation of a developer assistant agent inspired by human cognit
 * **Intégration LLM** – Serveur vLLM exposé en API compatible OpenAI pour fournir les complétions et plans.
 * **Orchestration d'agent** – Agent ReAct de LangChain reliant l'index, la mémoire courte, le toolkit OpenHands et le LLM.
 
+### Activer la stack dans le code
+
+Par défaut, l'agent fonctionne en mode autonome (index maison + mémoire locale) afin de tourner sans dépendances lourdes. Dès que les
+briques open source sont installées, il les utilise automatiquement :
+
+```bash
+pip install .[stack]           # ajoute LlamaIndex + FAISS + LangChain
+export LLM_PROVIDER=openai     # ou un endpoint compatible (vLLM, etc.)
+export LLM_MODEL=gpt-4o-mini
+```
+
+* **Indexation** – `ProjectIndexer` construit un index FAISS via LlamaIndex/FAISS dès qu'ils sont détectés pour que les recherches passent
+  par un vecteur store plutôt que par de simples prévisualisations.
+* **Mémoire de travail** – `WorkingMemory` crée automatiquement une `ConversationBufferWindowMemory` LangChain pour conserver une fenêtre
+  glissante des fichiers/summaries chargés.
+* **Fallbacks** – Si une dépendance n'est pas installée, les versions natives restent actives ; aucun drapeau n'est nécessaire.
+
 ## Architecture diagram
 
 ```mermaid
@@ -83,6 +100,32 @@ export LLM_BASE_URL=http://localhost:8000/v1
 ```
 
 Command-line arguments override environment variables when both are provided.
+
+### End-to-end execution
+
+Use the built-in pipeline to run the complete flow (indexing → plan → code search → optional tests) with a single call:
+
+```bash
+python -m coder_brain.cli \
+  --task "Audit login flow" \
+  --root /path/to/project \
+  --search "login" \
+  --test pytest
+```
+
+Or programmatically:
+
+```python
+from pathlib import Path
+from coder_brain.agent import CoderBrainAgent, Task
+
+agent = CoderBrainAgent(Path("/path/to/project"))
+report = agent.perform_task(
+    Task(description="Harden authentication flow", keywords=["auth", "login"]),
+    search_pattern="login",
+)
+print(report)
+```
 
 ## Development
 

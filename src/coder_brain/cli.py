@@ -48,18 +48,10 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     agent = CoderBrainAgent(args.root, llm_config=llm_config)
-    agent.bootstrap()
-
     task = Task(description=args.task, test_command=args.test or None)
-    agent.create_plan(task)
+    report = agent.perform_task(task, search_pattern=args.search or None)
 
-    if args.search:
-        agent.inspect_code(args.search)
-
-    if args.test:
-        agent.run_task_tests(task)
-
-    print(agent.report())
+    print(report)
     return 0
 
 
