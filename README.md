@@ -10,6 +10,14 @@ Prototype implementation of a developer assistant agent inspired by human cognit
 * **Language model integration** – Optional LLM layer that produces hierarchical summaries and task plans.
 * **Agent orchestration** – Combine the index, working memory, tools and LLM to plan work on a task in iterative loops.
 
+## Stack open source minimale (une seule brique par besoin)
+
+* **Indexation et mémoire long terme** – LlamaIndex installé avec un stockage vectoriel FAISS pour générer des résumés hiérarchiques du dépôt.
+* **Mémoire de travail** – ConversationBufferWindowMemory de LangChain afin de conserver une fenêtre glissante des échanges et fichiers actifs.
+* **Contrôleur d'outils** – Toolkit OpenHands (ex-Smoke) déjà équipé pour ripgrep, navigation de dépôt et exécution de tests.
+* **Intégration LLM** – Serveur vLLM exposé en API compatible OpenAI pour fournir les complétions et plans.
+* **Orchestration d'agent** – Agent ReAct de LangChain reliant l'index, la mémoire courte, le toolkit OpenHands et le LLM.
+
 ## Architecture diagram
 
 ```mermaid
