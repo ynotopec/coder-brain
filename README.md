@@ -29,6 +29,30 @@ flowchart LR
     Repo --> Index
 ```
 
+# Diagramme commun (simplifié)
+
+Diagramme synthétique des points communs : routage multi-stratégies, boucle de validation utilisateur et capitalisation mémoire.
+
+```mermaid
+flowchart LR
+    U["Utilisateur"] --> Router["Routeur de stratégie"]
+    Router --> Direct["Réponse directe"]
+    Router --> RAG["Récupération interne (RAG)"]
+    Router --> Web["Recherche web / outils métier"]
+    Router --> Plan["Plan d'action / outils"]
+
+    Direct --> Gen["Réponse générée"]
+    RAG --> Gen
+    Web --> Gen
+    Plan --> Gen
+
+    Gen --> Feedback{Validation utilisateur ?}
+    Feedback -->|OK| Memo["Mémoire long terme\n(corrections validées)"]
+    Feedback -->|KO| Escalade["Escalade humaine / ajustement"]
+    Escalade --> Memo
+    Memo --> Router
+```
+
 ## Usage
 
 ```bash
