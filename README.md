@@ -101,6 +101,20 @@ export LLM_BASE_URL=http://localhost:8000/v1
 
 Command-line arguments override environment variables when both are provided.
 
+### Environment variables
+
+Only two variables are required to reach a real LLM provider; the rest are optional tuning knobs. Defaults are shown in
+parentheses when applicable.
+
+| Variable | Required? | Purpose |
+| --- | --- | --- |
+| `LLM_PROVIDER` | ✅ | Provider identifier (for example `openai` or `mock`). |
+| `LLM_MODEL` | ✅ | Model name to request from the provider. |
+| `LLM_API_KEY` | Optional | API key passed to the provider client. |
+| `LLM_BASE_URL` / `LLM_ENDPOINT` | Optional | Custom base URL for OpenAI-compatible endpoints. |
+| `LLM_MAX_TOKENS` (`1024`) | Optional | Maximum tokens requested per completion. |
+| `LLM_TEMPERATURE` (`0.2`) | Optional | Sampling temperature for completions. |
+
 ### End-to-end execution
 
 Use the built-in pipeline to run the complete flow (indexing → plan → code search → optional tests) with a single call:
