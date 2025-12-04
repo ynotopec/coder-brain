@@ -50,3 +50,18 @@ def test_perform_task_runs_end_to_end(tmp_path):
     assert "Prepared plan" in report
     assert "LLM-generated plan" in report
     assert "Ran code search" in report
+
+
+def test_perform_task_auto_search(tmp_path):
+    (tmp_path / "pkg").mkdir()
+    write_file(tmp_path, "pkg/app.py", "def handle():\n    return 'ok'\n")
+
+    from coder_brain.agent import CoderBrainAgent, Task
+    from coder_brain.llm import MockLanguageModel
+
+    agent = CoderBrainAgent(tmp_path, language_model=MockLanguageModel())
+
+    task = Task(description="Investigate handle behaviour", keywords=["handle"])
+    report = agent.perform_task(task, auto_search=True)
+
+    assert "Ran code search" in report

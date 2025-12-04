@@ -84,6 +84,7 @@ flowchart LR
 python -m coder_brain.cli \
   --task "Fix login redirect bug" \
   --root /path/to/project \
+  --keywords login redirect \
   --llm-provider mock \
   --llm-model offline
 ```
@@ -123,9 +124,13 @@ Use the built-in pipeline to run the complete flow (indexing → plan → code s
 python -m coder_brain.cli \
   --task "Audit login flow" \
   --root /path/to/project \
+  --keywords login flow \
   --search "login" \
   --test pytest
 ```
+
+If you omit `--search` but still want a quick inspection, pass `--auto-search` along with `--keywords` (or let the agent derive
+them from the task description) to run a code search for the first keyword automatically.
 
 Or programmatically:
 
