@@ -85,3 +85,26 @@ def test_mock_language_model_behaviour():
     assert "Review services.py (Business rules)." in response
     # A final validation step should still be present.
     assert "Run the full test suite" in response
+
+
+def test_openai_errors_are_wrapped(monkeypatch):
+    from coder_brain.llm import LLMConfig, LanguageModelError, create_language_model
+
+    class DummyResponses:
+        def create(self, **kwargs):
+            raise RuntimeError("boom")
+
+    class DummyClient:
+        def __init__(self, **kwargs):
+            self.responses = DummyResponses()
+
+    dummy_module = types.SimpleNamespace(OpenAI=DummyClient)
+    monkeypatch.setitem(sys.modules, "openai", dummy_module)
+
+    config = LLMConfig(provider="openai", model="dummy-model")
+    model = create_language_model(config)
+
+    with pytest.raises(LanguageModelError) as excinfo:
+        model.complete(system="S", user="U")
+
+    assert "boom" in str(excinfo.value)
