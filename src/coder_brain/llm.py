@@ -198,21 +198,26 @@ def create_language_model(config: Optional[LLMConfig] = None) -> LanguageModel:
                 self._config = cfg
 
             def complete(self, *, system: str, user: str) -> str:  # pragma: no cover - network call
-                response = self._client.responses.create(
-                    model=self._config.model,
-                    input=[
-                        {
-                            "role": "system",
-                            "content": system,
-                        },
-                        {
-                            "role": "user",
-                            "content": user,
-                        },
-                    ],
-                    temperature=self._config.temperature,
-                    max_output_tokens=self._config.max_tokens,
-                )
+                try:
+                    response = self._client.responses.create(
+                        model=self._config.model,
+                        input=[
+                            {
+                                "role": "system",
+                                "content": system,
+                            },
+                            {
+                                "role": "user",
+                                "content": user,
+                            },
+                        ],
+                        temperature=self._config.temperature,
+                        max_output_tokens=self._config.max_tokens,
+                    )
+                except Exception as exc:  # pragma: no cover - defensive wrapper around client errors
+                    raise LanguageModelError(
+                        f"OpenAI request failed: {exc}"
+                    ) from exc
                 if not getattr(response, "output", None):
                     raise LanguageModelError("Empty response from OpenAI API")
                 return "".join(
