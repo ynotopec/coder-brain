@@ -24,3 +24,26 @@ def test_main_runs_with_valid_root(tmp_path: Path, capsys: pytest.CaptureFixture
     assert exit_code == 0
     assert "Indexed project" in captured
     assert "Prepared plan for task" in captured
+
+
+def test_main_auto_searches_with_keywords(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "module").mkdir()
+    (tmp_path / "module" / "file.py").write_text("def handle():\n    return 'ok'\n")
+
+    exit_code = main(
+        [
+            "--root",
+            str(tmp_path),
+            "--task",
+            "Audit handle",
+            "--keywords",
+            "handle",
+            "--auto-search",
+        ]
+    )
+
+    captured = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Ran code search" in captured

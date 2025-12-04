@@ -206,6 +206,7 @@ class CoderBrainAgent:
         task: Task,
         *,
         search_pattern: Optional[str] = None,
+        auto_search: bool = False,
         refresh_index: bool = True,
     ) -> str:
         """Execute the full pipeline for a task from indexing to validation.
@@ -228,6 +229,10 @@ class CoderBrainAgent:
 
         if search_pattern:
             self.inspect_code(search_pattern)
+        elif auto_search:
+            derived = task.derive_keywords()
+            if derived:
+                self.inspect_code(derived[0])
 
         if task.test_command:
             self.run_task_tests(task)
