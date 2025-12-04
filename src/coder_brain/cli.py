@@ -36,6 +36,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    if not args.root.exists():
+        parser.error(f"Root path does not exist: {args.root}")
+    if not args.root.is_dir():
+        parser.error(f"Root path is not a directory: {args.root}")
+
     llm_config = None
     if args.llm_provider or args.llm_model:
         if not (args.llm_provider and args.llm_model):
