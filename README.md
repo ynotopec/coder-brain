@@ -146,6 +146,30 @@ report = agent.perform_task(
 print(report)
 ```
 
+### Obtenir un premier code fonctionnel et itérer
+
+1. **Préparer le dépôt cible** : assurez-vous que `--root` pointe vers un projet réel (même minimal) contenant un fichier
+   README ou un squelette de code. Si l'index ne trouve rien, le plan LLM sera vide ou très succinct.
+2. **Lancer la première boucle** : exécutez la CLI avec une tâche explicite, quelques mots-clés et une recherche automatique
+   pour forcer l'inspection de code :
+
+   ```bash
+   python -m coder_brain.cli \
+     --task "Make a Tetris game" \
+     --root /path/to/project \
+     --keywords tetris gameplay grid \
+     --auto-search
+   ```
+
+   *Par défaut le fournisseur LLM est `mock` ; pour un plan plus riche, exportez `LLM_PROVIDER` et `LLM_MODEL` avant de
+   relancer la commande.*
+3. **Appliquer les suggestions** : implémentez manuellement les étapes proposées (ex. créer une boucle de jeu minimale,
+   dessiner la grille, ajouter la rotation des pièces). Une fois le code ajouté, relancez la CLI avec `--keywords` similaires
+   et, si besoin, `--search "<mot>"` pour vérifier que les fichiers nouvellement créés sont pris en compte.
+4. **Tester et affiner** : ajoutez `--test pytest` (ou un autre runner) pour valider automatiquement après chaque itération.
+   Continuez la boucle modifier ➜ relancer la CLI ➜ exécuter les tests jusqu'à obtenir un premier jeu jouable, puis itérez sur
+   les fonctionnalités (score, vitesse, UI, etc.).
+
 ## Development
 
 ### Automated setup
