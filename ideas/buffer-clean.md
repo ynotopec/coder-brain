@@ -10,22 +10,22 @@ Voici une approche simple et efficace : **Document → Carte (diagramme) → Nav
 
 ```mermaid
 flowchart TD
-  A[Document brut\n(PDF/DOC/HTML)] --> B[Pré-traitement\nnettoyage, sections, titres, pages]
-  B --> C[Chunking structuré\npar titres + taille + overlap]
+  A[Document brut<br/>(PDF/DOC/HTML)] --> B[Pré-traitement<br/>nettoyage, sections, titres, pages]
+  B --> C[Chunking structuré<br/>par titres + taille + overlap]
   C --> D[Index]
-  D --> D1[(Vecteurs\nembeddings)]
+  D --> D1[(Vecteurs<br/>embeddings)]
   D --> D2[(BM25/lexical)]
-  C --> E[Extraction de structure\nplan + idées + définitions]
-  E --> F[Carte du document\n(Plan hiérarchique)]
-  E --> G[Graphe de concepts\n(noeuds=concepts, arêtes=relations)]
+  C --> E[Extraction de structure<br/>plan + idées + définitions]
+  E --> F[Carte du document<br/>(Plan hiérarchique)]
+  E --> G[Graphe de concepts<br/>(noeuds=concepts, arêtes=relations)]
   F --> H[Questions / tâches]
   G --> H
-  H --> I[Retrieval hybride\n(vecteurs + lexical + filtres sections)]
-  I --> J[Lectures ciblées\npassages probants]
+  H --> I[Retrieval hybride<br/>(vecteurs + lexical + filtres sections)]
+  I --> J[Lectures ciblées<br/>passages probants]
   J --> K[Réponse + citations]
-  K --> L[Auto-vérification\ncontradictions, manques, hallucinations]
+  K --> L[Auto-vérification<br/>contradictions, manques, hallucinations]
   L -->|si manque| I
-  L -->|ok| M[MAJ mémoire externe\ncarte + graphe + résumés par section]
+  L -->|ok| M[MAJ mémoire externe<br/>carte + graphe + résumés par section]
 ```
 
 ### Comment le faire “avec un LLM” (pratique)
