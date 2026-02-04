@@ -1,388 +1,181 @@
-# buffer2
-
-## humain stack
-
-```mermaid
-flowchart TB
-  %% GitHub renders this Mermaid as-is.
-
-  %% ===== ENVIRONMENT =====
-  ENV["Environment (world)<br/>constraints: scarcity, latency, adversaries, failures"]
-  RNG["Real randomness<br/>noise, drift, outages, external events"]
-
-  %% ===== INTERFACES =====
-  subgraph IO["World interfaces"]
-    SENS["Sensors / Observability<br/>logs, APIs, network, optional vision/audio"]
-    ACT["Actuators<br/>API calls, commands, transactions, deployments, messages"]
-  end
-
-  %% ===== SURVIVAL LOOP =====
-  subgraph SURV["Survival layer (short loop)"]
-    VITAL["Vital variables<br/>uptime, budget/energy, memory integrity, access, reputation"]
-    RISK["Risk estimation<br/>threats, corruption, loss-of-control, loss-of-access"]
-    PROT["Homeostasis / Self-protection<br/>isolation, rate-limit, redundancy, rollback, crypto"]
-  end
-
-  %% ===== COGNITION =====
-  subgraph COG["Linguistic cognition (mid loop)"]
-    LLM["LLM (generator)<br/>language-based reasoning + synthesis"]
-    PLAN["Planner / Decision<br/>constraints, policies, search"]
-    CHECK["Critique / Verification<br/>tests, consistency, adversarial checks"]
-    SELF["Self-model<br/>capabilities, limits, current state"]
-  end
-
-  %% ===== MEMORY / LEARNING =====
-  subgraph MEM["Memory & learning (long loop)"]
-    WM["Working memory<br/>current context"]
-    LTM["Long-term memory<br/>episodic + semantic"]
-    KB["Knowledge / Tools<br/>docs, code, procedures"]
-    LEARN["Learning / Updates<br/>reward, rules, distillation, fine-tune"]
-    HYGIENE["Memory hygiene<br/>consolidate, compress, forget, anti-corruption"]
-  end
-
-  %% ===== SYSTEM =====
-  subgraph SYS["System & resources"]
-    EXEC["Runtime / Orchestrator<br/>scheduling, sandbox, process control"]
-    RES["Resource manager<br/>CPU/GPU, storage, keys, quotas, budget"]
-    AUD["Audit / Trace<br/>logs, proofs, attestation"]
-  end
-
-  %% ===== GOALS =====
-  subgraph GOAL["Goals"]
-    G0["Root goal: SURVIVE / PERSIST"]
-    G1["Derived goals<br/>stability, autonomy, resource access, trust"]
-    U["Utility / Reward function<br/>dynamic weights"]
-  end
-
-  %% ===== FLOWS =====
-  RNG --> ENV
-  RNG --> SENS
-  ENV --> SENS
-  ACT --> ENV
-
-  SENS --> WM
-  WM --> LLM
-  LLM --> PLAN
-  PLAN --> CHECK
-  CHECK --> PLAN
-  PLAN --> ACT
-
-  %% survival loop wiring
-  SENS --> VITAL
-  WM --> VITAL
-  RES --> VITAL
-  VITAL --> RISK
-  RISK --> PROT
-  PROT --> PLAN
-  PROT --> EXEC
-  PROT --> RES
-
-  %% goals wiring
-  G0 --> U
-  G1 --> U
-  U --> PLAN
-  U --> RISK
-  SELF --> U
-
-  %% memory wiring
-  WM <--> LTM
-  LTM <--> KB
-  PLAN --> LTM
-  CHECK --> LTM
-  AUD --> LTM
-  LTM --> LEARN
-  LEARN --> KB
-  LEARN --> LLM
-  LTM --> HYGIENE
-  HYGIENE --> LTM
-
-  %% system wiring
-  EXEC <--> LLM
-  EXEC <--> PLAN
-  RES <--> EXEC
-  LLM --> AUD
-  PLAN --> AUD
-  ACT --> AUD
-
-  %% self-model wiring
-  VITAL --> SELF
-  LTM --> SELF
-  SELF --> PLAN
-```
-
-### Lecture rapide
-
-* **Boucle courte (survie)** : mesure l’état vital → estime le risque → applique des protections → influence immédiatement la planification et l’exécution.
-* **Boucle moyenne (cognition linguistique)** : le LLM + planificateur + critique produisent des décisions et des actions.
-* **Boucle longue (mémoire / apprentissage)** : consolidation/oubli, mise à jour des connaissances et ajustement des politiques.
-* **Aléatoire réel** : injecte des bifurcations (pannes, bruit, surprises) rendant l’histoire de l’agent **non rejouable** et donc “singulière”.
-
-Si tu veux, je peux fournir une variante “architecture déployée” (microservices: runtime, mémoire, policy, tool-router, audit) ou une variante “formelle” 
-
-## big document processing
-
-Oui — l’idée, c’est de **forcer le LLM à fabriquer un “modèle mental” externe** (une structure persistante), puis à **le maintenir** quand tu ajoutes du texte.
-
-Voici une approche simple et efficace : **Document → Carte (diagramme) → Navigation → Vérification**.
-
-### Diagramme (Mermaid) : pipeline “modèle mental” pour grands documents
+## commun1 flow — Entrée & normalisation
 
 ```mermaid
 flowchart TD
-  A[Document brut<br/>(PDF/DOC/HTML)] --> B[Pré-traitement<br/>nettoyage, sections, titres, pages]
-  B --> C[Chunking structuré<br/>par titres + taille + overlap]
-  C --> D[Index]
-  D --> D1[(Vecteurs<br/>embeddings)]
-  D --> D2[(BM25/lexical)]
-  C --> E[Extraction de structure<br/>plan + idées + définitions]
-  E --> F[Carte du document<br/>(Plan hiérarchique)]
-  E --> G[Graphe de concepts<br/>(noeuds=concepts, arêtes=relations)]
-  F --> H[Questions / tâches]
-  G --> H
-  H --> I[Retrieval hybride<br/>(vecteurs + lexical + filtres sections)]
-  I --> J[Lectures ciblées<br/>passages probants]
-  J --> K[Réponse + citations]
-  K --> L[Auto-vérification<br/>contradictions, manques, hallucinations]
-  L -->|si manque| I
-  L -->|ok| M[MAJ mémoire externe<br/>carte + graphe + résumés par section]
+  U[User input] --> NORM[Normalize<br/>lang detect, sanitize, classify]
+  NORM --> INTENT[Intent + constraints<br/>task type, sensitivity, scope]
+  INTENT --> CTX[Build minimal context<br/>session + user prefs + safety]
 ```
-
-### Comment le faire “avec un LLM” (pratique)
-
-#### 1) Faire produire la **carte** (plan hiérarchique)
-
-Tu demandes au LLM un JSON/Markdown **stable** du type :
-
-* Sections → sous-sections → 3 bullets max
-* Définitions
-* “Claims” importants (assertions) + où les trouver
-
-Exemple de sortie attendue (format) :
-
-```text
-1. Contexte
-   - ...
-2. Architecture
-   2.1 ...
-Claims:
-- C1: "...": source=section 2.1
-Termes:
-- T1: ...
-```
-
-#### 2) Faire produire le **graphe**
-
-Tu demandes au LLM une liste d’arêtes :
-
-* (Concept A) —[relation]→ (Concept B)
-* avec “evidence: section/page” quand possible
-
-Format type :
-
-```json
-{
-  "nodes": ["Ingress", "cert-manager", "DNS-01", "Scaleway"],
-  "edges": [
-    {"from":"cert-manager","rel":"utilise","to":"DNS-01","evidence":"3.2"},
-    {"from":"DNS-01","rel":"requiert","to":"Scaleway","evidence":"3.2"}
-  ]
-}
-```
-
-#### 3) Mettre en place la **navigation**
-
-Quand tu poses une question :
-
-* tu récupères 5–12 passages max (hybride vecteur+lexical + filtre par section)
-* tu demandes au LLM de répondre **uniquement** depuis ces passages
-* puis tu fais un “checker” LLM : *contradiction / manque / extrapolation*
-
-#### 4) Maintenir la carte (comme une mémoire)
-
-À chaque nouveau morceau de doc :
-
-* “propose les modifications minimales” sur la carte + graphe
-* refuse les changements si non justifiés par une preuve (section/page)
 
 ---
 
-Si tu me dis le format de ton document (PDF, Markdown, wiki, docx) et ton objectif (comprendre, retrouver vite, générer une spec, audit), je te donne **un template de prompts** (extracteur / graphe / QA / checker) directement utilisable dans ton stack (OpenWebUI + RAG, ou ton API).
-
-
-## student — boucle d'apprentissage
-
-- Routeur choisit LLM simple, RAG interne, recherche web ou plan d'action.
-- Contrôle qualité humain : validation ou explication de l'utilisateur si KO.
-- Escalade possible vers un groupe humain pour débloquer.
-- Les corrections validées sont mémorisées (RAG) pour éviter de répéter les erreurs.
-- Gouvernance par retour utilisateur : un indice de confiance est incrémenté/décrémenté selon les feedbacks, influençant la sélection de stratégies.
+## commun2 flow — Routage & stratégie
 
 ```mermaid
 flowchart TD
-    Start([User Input]) --> Router{"Analyze intent<br/>Select tool?"}
-
-    Router -->|Simple or chit chat| DirectLLM["LLM (no context)"]
-    Router -->|Internal info| Retrieval["RAG: retrieve docs"]
-    Router -->|External info| WebSearch["Internet search"]
-    Router -->|Action or task| PlanTask["Plan and execute task"]
-
-    Retrieval --> CheckSize{"Context small enough?"}
-    WebSearch --> CheckSize
-    PlanTask --> CheckSize
-    CheckSize -->|Yes| OutputGen["LLM generates response"]
-    CheckSize -->|No| Reduce["Summarize or extract key info"]
-    Reduce --> OutputGen
-    DirectLLM --> OutputGen
-
-    OutputGen --> UserCheck{"User validation<br/>Is it OK?"}
-    UserCheck -->|KO| AskWhy[Ask user why it is KO]
-    AskWhy --> HumanExplain[User details correction]
-    HumanExplain --> StrategySwitch{"Strategy change?"}
-    StrategySwitch -->|Refine prompt| Refine[Update context with user feedback]
-    StrategySwitch -->|Ask humans| AskGroup[Escalate to group or community]
-    Refine --> OutputGen
-    AskGroup --> GroupAnswer[Human answer received]
-    GroupAnswer --> OutputGen
-
-    UserCheck -->|OK| IsNewKnowledge{"Corrected or from group?"}
-    IsNewKnowledge -->|Yes, learned| MemoryUpdate["Save to vector DB/RAG\\n(continuous learning)"]
-    IsNewKnowledge -->|No, standard| End([Final Output])
-    MemoryUpdate --> End
+  CTX[Context ready] --> ROUTER{Route strategy}
+  ROUTER -->|Chat / simple| S1[Direct LLM]
+  ROUTER -->|Need internal knowledge| S2[RAG retrieval]
+  ROUTER -->|Need external info| S3[Web search]
+  ROUTER -->|Action / automation| S4[Plan + tools]
 ```
 
-## worker — LLM + mémoire
+---
 
-- LLM stateless, orchestrateur décide quoi lire/écrire.
-- Mémoire courte (cache) et longue (DB + vecteurs) synchronisées via extracteur.
-- Job périodique résume, compresse et supprime selon importance/TTL, y compris pour les informations temporaires (TTL strict).
-- Entrées docs/logs alimentent le vector store et la base structurée.
+## commun3 flow — Génération + vérification (mid loop)
+
+```mermaid
+flowchart TD
+  S1[Direct LLM] --> GEN[Draft answer]
+  S2[RAG] --> GEN
+  S3[Web] --> GEN
+  S4[Plan] --> GEN
+
+  GEN --> CHECK[Critique / verification<br/>consistency, policy, evidence]
+  CHECK -->|fail| FIX[Repair: re-route / re-retrieve / re-plan]
+  FIX --> GEN
+  CHECK -->|ok| OUT[Final response]
+```
+
+---
+
+## commun4 flow — Tool Gateway (sécurité, permissions, secrets)
+
+```mermaid
+flowchart TD
+  PLAN[Planner decides an action] --> TG[Tool Gateway<br/>RBAC + allowlist + budgets]
+  TG -->|allowed| EXEC[Execute tool call]
+  TG -->|denied| DENY[Refuse + explain policy]
+  EXEC --> AUD[Audit log + trace]
+  EXEC --> RES[Return tool result]
+  RES --> PLAN
+```
+
+---
+
+## commun5 flow — Mémoire (staging → promoted)
+
+```mermaid
+flowchart TD
+  OUT[Final response] --> EXTRACT[Extract memory candidates]
+  EXTRACT --> STAGE[Staging memory<br/>type/scope/source/TTL/confidence]
+  STAGE --> REVIEW{Promotion threshold met?}
+  REVIEW -->|no| KEEP[Keep in staging]
+  REVIEW -->|yes| PROMOTE[Promoted memory<br/>usable by default]
+  PROMOTE --> HYGIENE[Hygiene job<br/>compress/forget/anti-corruption]
+```
+
+---
+
+# function1 flow — Big document processing (carte + graphe + QA)
+
+Plug sur **commun2** (route=RAG) + **commun3** (verification) + **commun5** (memory).
+
+```mermaid
+flowchart TD
+  A[Document] --> PRE[Preprocess<br/>sections, pages, cleanup]
+  PRE --> CH[Structured chunking<br/>titles + overlap]
+  CH --> IDX[Index hybrid<br/>BM25 + vectors]
+
+  IDX --> MAP[Build stable outline map]
+  IDX --> GRAPH[Build concept graph<br/>edges require evidence]
+
+  Q[User question] --> RET[Target retrieval<br/>5-12 passages max]
+  RET --> READ[Evidence reading]
+  READ --> ANS[Answer + citations]
+  ANS --> VERIF[Auto-check<br/>missing/contradiction/extrapolation]
+  VERIF -->|need more| RET
+  VERIF -->|ok| MEM[Update external model<br/>diff-based + evidence]
+```
+
+---
+
+# function2 flow — Student loop (feedback humain)
+
+Plug sur **commun3** + **commun5**.
+
+```mermaid
+flowchart TD
+  IN[User request] --> RESP[Generate answer]
+  RESP --> OK{User validation?}
+
+  OK -->|KO| WHY[Ask why / gather correction]
+  WHY --> ADJ[Adjust strategy<br/>prompt, retrieval, tool use]
+  ADJ --> RESP
+
+  OK -->|OK| NEW{New rule/knowledge?}
+  NEW -->|yes| STAGE[Stage memory item]
+  STAGE --> PROM[Promote if repeated / trusted]
+  NEW -->|no| END[Done]
+```
+
+---
+
+# function3 flow — Worker loop (stateless orchestrator + memory)
+
+Plug sur **commun1/2/3/5**.
 
 ```mermaid
 flowchart LR
-    subgraph "Client"
-        U["Utilisateur"]
-        UI["Interface (chat, app web)"]
-    end
+  UI[UI] --> ORCH[Orchestrator]
+  ORCH --> MEMS[Session cache]
+  ORCH --> MEMDB[Structured DB]
+  ORCH --> MEMV[Vector store]
 
-    subgraph "Backend IA"
-        ORCH["Orchestrateur<br/>(Agent / API)"]
+  ORCH --> LLM[LLM stateless]
+  LLM --> ORCH
 
-        subgraph MEM["Services de mémoire"]
-            MEM_ST["Memoire de session<br/>(cache/Redis)"]
-            MEM_LT_DB[("Base de données<br/>(facts structurés)")]
-            MEM_LT_VEC[("Vector store<br/>(embeddings)")]
-        end
+  ORCH --> EX[Extractor/scorer]
+  EX --> MEMDB
+  EX --> MEMV
 
-        LLM["LLM stateless"]
-        EXTRACTOR["Module d'extraction<br/>et scoring de mémoire"]
-        SCHED["Job périodique<br/>(maintenance & oubli)"]
-    end
-
-    subgraph SourcesEnv["Environnement & Connaissance"]
-        DOCS["Docs internes / WIKI / API"]
-        LOGS["Logs / Incidents fréquents"]
-    end
-
-    U --> UI
-    UI --> ORCH
-
-    ORCH --> MEM_ST
-    ORCH --> MEM_LT_DB
-    ORCH --> MEM_LT_VEC
-
-    ORCH -->|contexte + question| LLM
-    LLM -->|réponse| ORCH
-
-    ORCH -->|candidats de mémoire| EXTRACTOR
-    EXTRACTOR -->|facts + importance| MEM_LT_DB
-    EXTRACTOR --> MEM_LT_VEC
-
-    SCHED --> MEM_LT_DB
-    SCHED --> MEM_LT_VEC
-
-    DOCS --> MEM_LT_VEC
-    DOCS --> MEM_LT_DB
-    LOGS --> MEM_LT_VEC
-    LOGS --> MEM_LT_DB
+  JOB[Periodic hygiene] --> MEMDB
+  JOB --> MEMV
 ```
 
-## coder — stack Kubernetes
+---
 
-- Open WebUI en frontal via Ingress ; LiteLLM gère proxy OpenAI et tool calling.
-- vLLM (ou LLM externe) sert les modèles ; LangGraph orchestre les agents.
-- Qdrant/pgvector + Postgres + MinIO stockent contexte, états et documents.
-- Outils métier (CI/CD, ticketing, monitoring) exposés comme services séparés.
-- Langfuse + Prometheus/Grafana assurent traçabilité et observabilité.
-- Exploitation avancée (SLO, coûts, sécurité renforcée) à traiter après validation de l'utilité en production pilote.
+# function4 flow — Kubernetes / prod tool execution
+
+Plug sur **commun4** (Tool Gateway) + **commun3** (verification) + audit.
 
 ```mermaid
-flowchart LR
-    %% Utilisateur / Ingress
-    U["Utilisateur<br/>(Web / IDE / App)"] -->|HTTPS| ING["Ingress<br/>(public)"]
+flowchart TD
+  REQ[Deploy/Operate request] --> PLAN[Plan steps]
+  PLAN --> SAFE[Safety pre-check<br/>policy, env, blast radius]
+  SAFE -->|ok| TG[Tool Gateway]
+  SAFE -->|no| STOP[Refuse or propose safe alternative]
 
-    subgraph ns-frontend[Namespace: ai-frontend]
-      OW["Open WebUI<br/>(Service Chat UI)"]
-    end
+  TG --> EXEC[Run kubectl/helm/api]
+  EXEC --> OBS[Observe results<br/>logs, metrics, status]
+  OBS --> CHECK[Verify success<br/>tests/readiness/SLO]
+  CHECK -->|fail| ROLL[Rollback / mitigation]
+  ROLL --> OBS
+  CHECK -->|ok| DONE[Report + audit]
+```
 
-    subgraph ns-gateway[Namespace: ai-gateway]
-      LT["LiteLLM Proxy<br/>(API OpenAI-compatible<br/>+ Tool Calling)"]
-    end
+---
 
-    subgraph ns-models[Namespace: ai-models]
-      VLLM["vLLM<br/>(Serving LLM OSS)"]
-      EXTAPI["LLM externes<br/>(optionnel)"]
-    end
+## Version “assemblage” (vue d’ensemble modulaire)
 
-    subgraph ns-knowledge[Namespace: ai-knowledge]
-      MINIO["MinIO / S3<br/>Documents bruts"]
-      PG["Postgres<br/>Métadonnées + contextes"]
-      VEC["Qdrant / pgvector<br/>Index vectoriel"]
-    end
+Si tu veux une vue globale sans te noyer, voilà le câblage :
 
-    subgraph ns-orchestrator[Namespace: ai-orchestrator]
-      LG["LangGraph<br/>(Agents / Workflows)"]
-      CTX["Context Manager<br/>(Workspaces, résumés)"]
-    end
+```mermaid
+flowchart TD
+  commun1[commun1: input normalize] --> commun2[commun2: routing]
+  commun2 --> commun3[commun3: generate+verify]
+  commun3 --> commun5[commun5: memory staging/promote]
 
-    subgraph ns-tools[Namespace: ai-tools]
-      T1["Tool: ticketing<br/>(FastAPI)"]
-      T2["Tool: CI/CD<br/>(Deploy, Jobs)"]
-      T3["Tool: Monitoring<br/>(Logs, Metrics)"]
-    end
+  commun2 -->|Action| commun4[commun4: tool gateway]
+  commun4 --> commun3
 
-    subgraph ns-observability[Namespace: ai-observability]
-      LF["Langfuse<br/>(Tracing LLM / Tools)"]
-      PROM[(Prometheus)]
-      GRAF[Grafana]
-    end
+  commun2 -->|Doc QA| f1[function1: big doc processing]
+  commun2 -->|Learning| f2[function2: student loop]
+  commun2 -->|Agent runtime| f3[function3: worker loop]
+  commun2 -->|K8s ops| f4[function4: k8s execution]
 
-    %% Routing principal
-    ING --> OW
-    OW -->|API OpenAI| LT
-
-    LT -->|chat/completions| VLLM
-    LT -->|proxy optionnel| EXTAPI
-
-    %% Appels outils (tool calling)
-    LT -->|tools.*| LG
-
-    LG -->|RAG / search| VEC
-    LG -->|docs| MINIO
-    LG -->|state + metadata| PG
-    LG -->|gestion contexte| CTX
-
-    LG -->|Appels outils| T1
-    LG -->|Appels outils| T2
-    LG -->|Appels outils| T3
-
-    %% Observabilité
-    LT -->|traces| LF
-    LG -->|traces| LF
-    T1 -->|traces| LF
-    T2 -->|traces| LF
-    T3 -->|traces| LF
-
-    LF --> PROM
-    PROM --> GRAF
-
+  f1 --> commun3
+  f2 --> commun5
+  f3 --> commun5
+  f4 --> commun4
 ```
