@@ -1,181 +1,129 @@
-## commun1 flow — Entrée & normalisation
+Voici une **v2 fusionnée** (fonctions similaires jointes) en gardant tes idées, mais avec moins de flows distincts. Je te donne :
+
+1) une **vue d’ensemble** (câblage),
+2) trois **modules** détaillés : Reasoning/Verify, Knowledge (RAG), Actions/Tools + Memory (learning).
+
+---
+
+## 1) Vue d’ensemble (modules fusionnés)
 
 ```mermaid
 flowchart TD
   U[User input] --> NORM[Normalize<br/>lang detect, sanitize, classify]
   NORM --> INTENT[Intent + constraints<br/>task type, sensitivity, scope]
-  INTENT --> CTX[Build minimal context<br/>session + user prefs + safety]
+  INTENT --> CTX[Build minimal context<br/>session + prefs + safety flags]
+
+  CTX --> ROUTER{Route policy}
+
+  ROUTER -->|Direct chat| DIRECT[Direct generation]
+  ROUTER -->|Knowledge needed| KNOW[Knowledge module (RAG)]
+  ROUTER -->|Action needed| ACT[Actions/Tools module]
+  ROUTER -->|External info| WEB[Web search module]
+
+  DIRECT --> LOOP[Reasoning loop<br/>draft → verify → repair]
+  KNOW --> LOOP
+  WEB --> LOOP
+  ACT --> LOOP
+
+  LOOP --> OUT[Final response]
+
+  OUT --> MEM[Memory & Learning pipeline<br/>extract → stage → review → promote → hygiene]
 ```
+
+Notes :
+- **function1** est absorbée par **Knowledge module (RAG)**.
+- **commun4 + function4** sont fusionnées en **Actions/Tools module** (K8s = profil d’outils + checks).
+- **commun5 + function2** sont fusionnées en **Memory & Learning pipeline** (avec option feedback humain).
 
 ---
 
-## commun2 flow — Routage & stratégie
+## 2) Module “Reasoning loop” (commun3 généralisé)
 
 ```mermaid
 flowchart TD
-  CTX[Context ready] --> ROUTER{Route strategy}
-  ROUTER -->|Chat / simple| S1[Direct LLM]
-  ROUTER -->|Need internal knowledge| S2[RAG retrieval]
-  ROUTER -->|Need external info| S3[Web search]
-  ROUTER -->|Action / automation| S4[Plan + tools]
+  IN[Inputs ready<br/>direct or evidence or tool results] --> GEN[Draft answer]
+  GEN --> VERIFY[Verify suite<br/>policy + consistency + evidence/format]
+
+  VERIFY -->|ok| OUT[Return final]
+
+  VERIFY -->|need evidence| REPAIR_RAG[Repair: retrieve/read more]
+  VERIFY -->|bad plan/tool risk| REPAIR_ACT[Repair: re-plan / constrain tools]
+  VERIFY -->|format/style fail| REPAIR_FMT[Repair: re-draft w/ constraints]
+  VERIFY -->|policy fail| REFUSE[Refuse / safe alternative]
+
+  REPAIR_RAG --> GEN
+  REPAIR_ACT --> GEN
+  REPAIR_FMT --> GEN
 ```
 
 ---
 
-## commun3 flow — Génération + vérification (mid loop)
+## 3) Module “Knowledge (RAG)” = function1 regroupée (ingestion optionnelle + QA runtime)
 
 ```mermaid
 flowchart TD
-  S1[Direct LLM] --> GEN[Draft answer]
-  S2[RAG] --> GEN
-  S3[Web] --> GEN
-  S4[Plan] --> GEN
+  subgraph ING[Ingestion / Indexing (offline or on upload)]
+    DOC[Document(s)] --> PRE[Preprocess<br/>sections, cleanup]
+    PRE --> CH[Structured chunking<br/>titles + overlap]
+    CH --> IDX[Index hybrid<br/>BM25 + vectors]
+    IDX --> MAP[Stable outline map]
+    IDX --> GRAPH[Concept graph<br/>edges require evidence]
+  end
 
-  GEN --> CHECK[Critique / verification<br/>consistency, policy, evidence]
-  CHECK -->|fail| FIX[Repair: re-route / re-retrieve / re-plan]
-  FIX --> GEN
-  CHECK -->|ok| OUT[Final response]
+  subgraph QA[QA runtime (per question)]
+    Q[User question] --> RET[Target retrieval<br/>5-12 passages max]
+    RET --> READ[Evidence reading]
+    READ --> ANS[Answer draft + citations]
+    ANS --> VER[Evidence check<br/>missing/contradiction/extrapolation]
+    VER -->|need more| RET
+    VER -->|ok| OUT[Return evidence pack<br/>answer+cites+notes]
+  end
 ```
 
 ---
 
-## commun4 flow — Tool Gateway (sécurité, permissions, secrets)
+## 4) Module “Actions/Tools” = commun4 + function4 fusionnés (K8s = un cas)
 
 ```mermaid
 flowchart TD
-  PLAN[Planner decides an action] --> TG[Tool Gateway<br/>RBAC + allowlist + budgets]
-  TG -->|allowed| EXEC[Execute tool call]
-  TG -->|denied| DENY[Refuse + explain policy]
-  EXEC --> AUD[Audit log + trace]
-  EXEC --> RES[Return tool result]
-  RES --> PLAN
-```
-
----
-
-## commun5 flow — Mémoire (staging → promoted)
-
-```mermaid
-flowchart TD
-  OUT[Final response] --> EXTRACT[Extract memory candidates]
-  EXTRACT --> STAGE[Staging memory<br/>type/scope/source/TTL/confidence]
-  STAGE --> REVIEW{Promotion threshold met?}
-  REVIEW -->|no| KEEP[Keep in staging]
-  REVIEW -->|yes| PROMOTE[Promoted memory<br/>usable by default]
-  PROMOTE --> HYGIENE[Hygiene job<br/>compress/forget/anti-corruption]
-```
-
----
-
-# function1 flow — Big document processing (carte + graphe + QA)
-
-Plug sur **commun2** (route=RAG) + **commun3** (verification) + **commun5** (memory).
-
-```mermaid
-flowchart TD
-  A[Document] --> PRE[Preprocess<br/>sections, pages, cleanup]
-  PRE --> CH[Structured chunking<br/>titles + overlap]
-  CH --> IDX[Index hybrid<br/>BM25 + vectors]
-
-  IDX --> MAP[Build stable outline map]
-  IDX --> GRAPH[Build concept graph<br/>edges require evidence]
-
-  Q[User question] --> RET[Target retrieval<br/>5-12 passages max]
-  RET --> READ[Evidence reading]
-  READ --> ANS[Answer + citations]
-  ANS --> VERIF[Auto-check<br/>missing/contradiction/extrapolation]
-  VERIF -->|need more| RET
-  VERIF -->|ok| MEM[Update external model<br/>diff-based + evidence]
-```
-
----
-
-# function2 flow — Student loop (feedback humain)
-
-Plug sur **commun3** + **commun5**.
-
-```mermaid
-flowchart TD
-  IN[User request] --> RESP[Generate answer]
-  RESP --> OK{User validation?}
-
-  OK -->|KO| WHY[Ask why / gather correction]
-  WHY --> ADJ[Adjust strategy<br/>prompt, retrieval, tool use]
-  ADJ --> RESP
-
-  OK -->|OK| NEW{New rule/knowledge?}
-  NEW -->|yes| STAGE[Stage memory item]
-  STAGE --> PROM[Promote if repeated / trusted]
-  NEW -->|no| END[Done]
-```
-
----
-
-# function3 flow — Worker loop (stateless orchestrator + memory)
-
-Plug sur **commun1/2/3/5**.
-
-```mermaid
-flowchart LR
-  UI[UI] --> ORCH[Orchestrator]
-  ORCH --> MEMS[Session cache]
-  ORCH --> MEMDB[Structured DB]
-  ORCH --> MEMV[Vector store]
-
-  ORCH --> LLM[LLM stateless]
-  LLM --> ORCH
-
-  ORCH --> EX[Extractor/scorer]
-  EX --> MEMDB
-  EX --> MEMV
-
-  JOB[Periodic hygiene] --> MEMDB
-  JOB --> MEMV
-```
-
----
-
-# function4 flow — Kubernetes / prod tool execution
-
-Plug sur **commun4** (Tool Gateway) + **commun3** (verification) + audit.
-
-```mermaid
-flowchart TD
-  REQ[Deploy/Operate request] --> PLAN[Plan steps]
+  REQ[Action request] --> PLAN[Plan steps]
   PLAN --> SAFE[Safety pre-check<br/>policy, env, blast radius]
-  SAFE -->|ok| TG[Tool Gateway]
   SAFE -->|no| STOP[Refuse or propose safe alternative]
 
-  TG --> EXEC[Run kubectl/helm/api]
-  EXEC --> OBS[Observe results<br/>logs, metrics, status]
+  SAFE -->|ok| TG[Tool Gateway<br/>RBAC + allowlist + budgets + secrets]
+  TG -->|denied| DENY[Refuse + explain constraint]
+
+  TG -->|allowed| EXEC[Execute tool call(s)]
+  EXEC --> OBS[Observe results<br/>logs/metrics/status]
   OBS --> CHECK[Verify success<br/>tests/readiness/SLO]
-  CHECK -->|fail| ROLL[Rollback / mitigation]
-  ROLL --> OBS
-  CHECK -->|ok| DONE[Report + audit]
+  CHECK -->|fail| MIT[Mitigate / rollback]
+  MIT --> OBS
+
+  CHECK -->|ok| PACK[Return tool evidence<br/>outputs + actions + audit]
 ```
 
 ---
 
-## Version “assemblage” (vue d’ensemble modulaire)
-
-Si tu veux une vue globale sans te noyer, voilà le câblage :
+## 5) Module “Memory & Learning” = commun5 + function2 fusionnés (feedback humain optionnel)
 
 ```mermaid
 flowchart TD
-  commun1[commun1: input normalize] --> commun2[commun2: routing]
-  commun2 --> commun3[commun3: generate+verify]
-  commun3 --> commun5[commun5: memory staging/promote]
+  OUT[Final response] --> EX[Extract memory candidates]
 
-  commun2 -->|Action| commun4[commun4: tool gateway]
-  commun4 --> commun3
+  EX --> PRIV[Privacy/safety gate<br/>PII/secrets/scope/consent]
+  PRIV -->|reject| DROP[Do not store]
+  PRIV -->|ok| STAGE[Staging memory<br/>type/scope/source/TTL/confidence]
 
-  commun2 -->|Doc QA| f1[function1: big doc processing]
-  commun2 -->|Learning| f2[function2: student loop]
-  commun2 -->|Agent runtime| f3[function3: worker loop]
-  commun2 -->|K8s ops| f4[function4: k8s execution]
+  STAGE --> REVIEW{Promotion threshold met?}
+  REVIEW -->|no| KEEP[Keep in staging]
+  REVIEW -->|yes| PROM[Promote to usable memory]
 
-  f1 --> commun3
-  f2 --> commun5
-  f3 --> commun5
-  f4 --> commun4
+  PROM --> HYG[Hygiene job<br/>compress/forget/dedup/anti-corruption]
+
+  subgraph HILO[Optional human-in-the-loop]
+    USEROK{User validation?} -->|KO| WHY[Ask why / gather correction]
+    WHY --> ADJ[Adjust strategy]
+    ADJ --> USEROK
+    USEROK -->|OK| EX
+  end
 ```
