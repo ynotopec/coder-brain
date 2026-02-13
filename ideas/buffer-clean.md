@@ -170,7 +170,7 @@ flowchart TD
     %% Explicit Discard Path (P0 Fix)
     MEM_POL -->|Yes| SCHEMA[Schema & Embed]:::logic
     MEM_POL -->|No| DISCARD[Quarantine/<br/>Discard]:::logic
-    MEM_POL -->|Toxic| TOXIC[Poison Buffer<br/>(Blocklist)]:::safety
+    MEM_POL -->|Toxic| TOXIC["Poison Buffer<br/>(Blocklist)"]:::safety
     
     SCHEMA --> MEM_LTM
     DISCARD -.->|Audit Log| OBS5[Telemetry]:::obs
