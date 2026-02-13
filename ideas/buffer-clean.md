@@ -32,6 +32,7 @@ flowchart TD
   %% ==========================================
   subgraph P2 [Phase 2: Execution Engines]
     direction TB
+    REG[(Tool Registry)]:::db
     
     %% -- Routing Logic --
     ROUTER -->|Query| R_PLAN
@@ -47,8 +48,11 @@ flowchart TD
     SUFF -->|Yes| GEN[Generate Answer]:::logic
 
     %% 2. Action Flow
-    A_PLAN[Action Planner]:::logic --> SIM
+    A_PLAN[Action Planner]:::logic --> TOOL_OK{Tool Ready?}:::gate
+    TOOL_OK -->|Yes| SIM
+    TOOL_OK -->|No| GAP
     SIM[Dry Run / Validate]:::logic --> RISK{Risk Check}:::gate
+    SIM -->|Missing/Incompatible| GAP
     RISK -->|High| HITL[Human Approval]:::term
     RISK -->|Safe| EXEC
     HITL -->|Approved| EXEC[Execute Tool]:::logic
@@ -63,6 +67,48 @@ flowchart TD
     %% 4. Direct Flow
     CHAT[Direct Reply]:::logic --> CHAT_SAFE[Light Safety Check]:::crit
     CHAT_SAFE --> CHAT_PASS{Safe?}:::gate
+
+    %% 5. ToolBuilder (isolated build env)
+    subgraph TB_ENV [ToolBuilder Sandbox]
+      direction TB
+      GAP[Gap Detect]:::logic --> SPEC[Spec Gen]:::logic
+      SPEC --> IMPL[Impl Gen]:::logic
+      IMPL --> STATIC[Static Checks]:::logic
+      STATIC --> TESTS[Unit + Prop Tests]:::logic
+      TESTS --> T_POL{Policy Gate}:::gate
+      T_POL -->|Pass| T_DRY[Dry Run]:::logic
+      T_POL -->|Fail| TB_REJECT[Reject Proposal]:::logic
+      T_DRY --> APPROVAL[Approval (HITL)]:::term
+      APPROVAL -->|Approved| PROMO[Promotion]:::logic
+      APPROVAL -->|Rejected| TB_REJECT
+      PROMO --> REG
+      PROMO --> SMOKE{Post-Deploy Verify}:::gate
+      SMOKE -->|Pass| REPLAN[Re-Plan]:::logic
+      SMOKE -->|Fail| TB_ROLL[Rollback]:::logic
+      TB_ROLL --> REG
+    end
+
+    REPLAN --> A_PLAN
+    TB_REJECT --> CHAT
+
+    %% Registry introspection (no tool invention)
+    A_PLAN -.->|Introspect| REG
+    SIM -.->|Capability Check| REG
+
+    %% ToolBuilder observability fan-in
+    TB_OBS[(TB Logs & Metrics)]:::obs
+    GAP -.-> TB_OBS
+    SPEC -.-> TB_OBS
+    IMPL -.-> TB_OBS
+    STATIC -.-> TB_OBS
+    TESTS -.-> TB_OBS
+    T_POL -.-> TB_OBS
+    T_DRY -.-> TB_OBS
+    APPROVAL -.-> TB_OBS
+    PROMO -.-> TB_OBS
+    SMOKE -.-> TB_OBS
+    TB_ROLL -.-> TB_OBS
+    TB_REJECT -.-> TB_OBS
   end
 
   %% ==========================================
@@ -146,6 +192,7 @@ flowchart TD
   OBS[(Observability Log)]:::obs
   EXEC -.-> OBS
   ROLL -.-> OBS
+  TB_OBS -.-> OBS
   FORCE_EXIT -.-> OBS
   FINAL -.-> OBS
 ```
