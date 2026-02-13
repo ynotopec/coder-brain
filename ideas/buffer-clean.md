@@ -143,10 +143,10 @@ flowchart TD
     RETRY_PATH & ROLLBACK_PATH --> DISCRIM[Context Discriminator]:::logic
     
     %% Context Discriminator (P1 Fix)
-    DISCRIM -->{Root Cause<br/>Analysis}:::logic
-    DISCRIM -->|Context Pollution| PRUNE[Prune Noise<br/>Keep Core]:::logic
-    DISCRIM -->|Insufficient Data| ENHANCE[Expand Retrieval<br/>Relax Filters]:::logic
-    DISCRIM -->|Logic Error| REASON[Inject CoT Prompt]:::logic
+    DISCRIM --> RCA{Root Cause<br/>Analysis}:::logic
+    RCA -->|Context Pollution| PRUNE[Prune Noise<br/>Keep Core]:::logic
+    RCA -->|Insufficient Data| ENHANCE[Expand Retrieval<br/>Relax Filters]:::logic
+    RCA -->|Logic Error| REASON[Inject CoT Prompt]:::logic
     
     PRUNE & ENHANCE & REASON --> RETRY_CNT{Retry Count<br/><3?}:::gate
     
@@ -156,7 +156,7 @@ flowchart TD
     INJECT -->|Replace Context| BUILD
     
     %% Observability
-    DISCRIM -.->|Span: RetryReason| OBS4[Telemetry]:::obs
+    RCA -.->|Span: RetryReason| OBS4[Telemetry]:::obs
   end
 
   %% ==========================================
