@@ -1,46 +1,128 @@
 # coder-brain
 
-Prototype implementation of a developer assistant agent inspired by human cognition tricks such as chunking, limited working memory and reliance on external tools. The project is derived from the discussion stored in `buffer.md`.
+`coder-brain` is a lightweight prototype of a developer assistant that mimics a few human cognition patterns:
 
-## Components
+- **Long-term memory** via repository indexing and summaries.
+- **Working memory** via a small sliding window of relevant files.
+- **Tool use** (`search`, `test`) instead of keeping everything in context.
+- **Planning** via a deterministic mock model or an OpenAI-compatible LLM.
 
-* **Indexing** – Scan a repository to build lightweight summaries that act as long-term memory.
-* **Working memory** – Keep only a small sliding window of open files and contextual notes to mimic limited human working memory.
-* **Tools** – Provide search and test runners that the agent can call instead of keeping everything mentally loaded.
-* **Language model integration** – Optional LLM layer that produces hierarchical summaries and task plans.
-* **Agent orchestration** – Combine the index, working memory, tools and LLM to plan work on a task in iterative loops.
+## Quickstart
 
-## Stack open source minimale (une seule brique par besoin)
-
-* **Indexation et mémoire long terme** – LlamaIndex installé avec un stockage vectoriel FAISS pour générer des résumés hiérarchiques du dépôt.
-* **Mémoire de travail** – ConversationBufferWindowMemory de LangChain afin de conserver une fenêtre glissante des échanges et fichiers actifs.
-* **Contrôleur d'outils** – Toolkit OpenHands (ex-Smoke) déjà équipé pour ripgrep, navigation de dépôt et exécution de tests.
-* **Intégration LLM** – Serveur vLLM exposé en API compatible OpenAI pour fournir les complétions et plans.
-* **Orchestration d'agent** – Agent ReAct de LangChain reliant l'index, la mémoire courte, le toolkit OpenHands et le LLM.
-
-### Activer la stack dans le code
-
-Par défaut, l'agent fonctionne en mode autonome (index maison + mémoire locale) afin de tourner sans dépendances lourdes. Dès que les
-briques open source sont installées, il les utilise automatiquement :
+### 1) Install
 
 ```bash
-pip install .[stack]           # ajoute LlamaIndex + FAISS + LangChain
-export LLM_PROVIDER=openai     # ou un endpoint compatible (vLLM, etc.)
-export LLM_MODEL=gpt-4o-mini
+pip install -e .
 ```
 
-* **Indexation** – `ProjectIndexer` construit un index FAISS via LlamaIndex/FAISS dès qu'ils sont détectés pour que les recherches passent
-  par un vecteur store plutôt que par de simples prévisualisations.
-* **Mémoire de travail** – `WorkingMemory` crée automatiquement une `ConversationBufferWindowMemory` LangChain pour conserver une fenêtre
-  glissante des fichiers/summaries chargés.
-* **Fallbacks** – Si une dépendance n'est pas installée, les versions natives restent actives ; aucun drapeau n'est nécessaire.
+For development:
+
+```bash
+pip install -e .[dev]
+```
+
+### 2) Run the CLI
+
+```bash
+python -m coder_brain.cli \
+  --task "Fix login redirect bug" \
+  --root /path/to/project \
+  --keywords login redirect \
+  --auto-search
+```
+
+By default, the project runs with the deterministic **mock** model, so it works offline.
+
+### 3) Optional: use a real LLM
+
+```bash
+python -m coder_brain.cli \
+  --task "Fix login redirect bug" \
+  --root /path/to/project \
+  --llm-provider openai \
+  --llm-model gpt-4o-mini
+```
+
+To use provider credentials/endpoints from environment variables, initialize the agent programmatically with `LLMConfig.from_env()` (example below).
+
+---
+
+## How it works
+
+1. **Indexing**: `ProjectIndexer` scans files and builds quick previews/summaries.
+2. **Long-term memory**: file and module summaries are persisted in-memory for retrieval.
+3. **Working memory**: the top relevant files are loaded into a small context window.
+4. **Planning**: the language model produces a concise implementation plan.
+5. **Execution helpers**: optional code search and test command execution are appended to the report.
+
+## CLI reference
+
+| Flag | Required | Description |
+| --- | --- | --- |
+| `--root PATH` | Yes | Project root to inspect. |
+| `--task TEXT` | Yes | Task description. |
+| `--keywords ...` | No | Keywords for file selection and auto-search. |
+| `--search PATTERN` | No | Pattern to search in selected files. |
+| `--auto-search` | No | If `--search` is missing, search first derived keyword. |
+| `--test ...` | No | Test command tokens (example: `--test pytest -q`). |
+| `--llm-provider NAME` | No* | LLM provider (for example `mock`, `openai`). |
+| `--llm-model NAME` | No* | Model name. |
+| `--llm-max-tokens N` | No | Max output tokens requested from LLM (default: `1024`). |
+| `--llm-temperature F` | No | Sampling temperature (default: `0.2`). |
+
+\* `--llm-provider` and `--llm-model` must be provided together.
+
+## Environment variables (`LLM_*`)
+
+The `LLMConfig` helper supports the following variables:
+
+- `LLM_PROVIDER`
+- `LLM_MODEL`
+- `LLM_API_KEY`
+- `LLM_BASE_URL` (or `LLM_ENDPOINT`)
+- `LLM_MAX_TOKENS` (default `1024`)
+- `LLM_TEMPERATURE` (default `0.2`)
+
+The CLI does **not** auto-read these variables directly; they are used when building `LLMConfig.from_env()` in Python.
+
+## Programmatic usage
+
+```python
+from pathlib import Path
+
+from coder_brain.agent import CoderBrainAgent, Task
+from coder_brain.llm import LLMConfig
+
+agent = CoderBrainAgent(
+    Path("/path/to/project"),
+    llm_config=LLMConfig.from_env(),  # optional; falls back to mock model when None
+)
+
+report = agent.perform_task(
+    Task(
+        description="Harden authentication flow",
+        keywords=["auth", "login"],
+        test_command=["pytest", "-q"],
+    ),
+    auto_search=True,
+)
+print(report)
+```
+
+## Development
+
+Run tests:
+
+```bash
+pytest
+```
 
 ## Architecture diagram
 
 ```mermaid
 flowchart LR
     Task["Task input"] --> Agent["Agent orchestration"]
-    Agent --> WM["Working memory\n(sliding context)"]
+    Agent --> WM["Working memory\\n(sliding context)"]
     Agent --> Index["Indexing service"]
     Agent --> Tools["Tool controller"]
     WM --> Agent
@@ -52,171 +134,4 @@ flowchart LR
     Search --> Repo
     Tests --> Repo
     Repo --> Index
-```
-
-# Diagramme commun (simplifié)
-
-Diagramme synthétique des points communs : routage multi-stratégies, boucle de validation utilisateur et capitalisation mémoire.
-
-```mermaid
-flowchart LR
-    U["Utilisateur"] --> Router["Routeur de stratégie"]
-    Router --> Direct["Réponse directe"]
-    Router --> RAG["Récupération interne (RAG)"]
-    Router --> Web["Recherche web / outils métier"]
-    Router --> Plan["Plan d'action / outils"]
-
-    Direct --> Gen["Réponse générée"]
-    RAG --> Gen
-    Web --> Gen
-    Plan --> Gen
-
-    Gen --> Feedback{Validation utilisateur ?}
-    Feedback -->|OK| Memo["Mémoire long terme\n(corrections validées)"]
-    Feedback -->|KO| Escalade["Escalade humaine / ajustement"]
-    Escalade --> Memo
-    Memo --> Router
-```
-
-## Usage
-
-```bash
-python -m coder_brain.cli \
-  --task "Fix login redirect bug" \
-  --root /path/to/project \
-  --keywords login redirect \
-  --llm-provider mock \
-  --llm-model offline
-```
-
-The CLI prints a trace of the reasoning steps (plan, selected files, tool calls and LLM plan). When no LLM configuration is
-provided, a deterministic mock model is used. You can also configure a provider through environment variables:
-
-```bash
-export LLM_PROVIDER=openai
-export LLM_MODEL=gpt-4o-mini
-export LLM_API_KEY=sk-...
-# Optional: point to an OpenAI-compatible endpoint (for example, an open source provider)
-export LLM_BASE_URL=http://localhost:8000/v1
-```
-
-Command-line arguments override environment variables when both are provided.
-
-### Environment variables
-
-Only two variables are required to reach a real LLM provider; the rest are optional tuning knobs. Defaults are shown in
-parentheses when applicable.
-
-| Variable | Required? | Purpose |
-| --- | --- | --- |
-| `LLM_PROVIDER` | ✅ | Provider identifier (for example `openai` or `mock`). |
-| `LLM_MODEL` | ✅ | Model name to request from the provider. |
-| `LLM_API_KEY` | Optional | API key passed to the provider client. |
-| `LLM_BASE_URL` / `LLM_ENDPOINT` | Optional | Custom base URL for OpenAI-compatible endpoints. |
-| `LLM_MAX_TOKENS` (`1024`) | Optional | Maximum tokens requested per completion. |
-| `LLM_TEMPERATURE` (`0.2`) | Optional | Sampling temperature for completions. |
-
-### End-to-end execution
-
-Use the built-in pipeline to run the complete flow (indexing → plan → code search → optional tests) with a single call:
-
-```bash
-python -m coder_brain.cli \
-  --task "Audit login flow" \
-  --root /path/to/project \
-  --keywords login flow \
-  --search "login" \
-  --test pytest
-```
-
-If you omit `--search` but still want a quick inspection, pass `--auto-search` along with `--keywords` (or let the agent derive
-them from the task description) to run a code search for the first keyword automatically.
-
-Or programmatically:
-
-```python
-from pathlib import Path
-from coder_brain.agent import CoderBrainAgent, Task
-
-agent = CoderBrainAgent(Path("/path/to/project"))
-report = agent.perform_task(
-    Task(description="Harden authentication flow", keywords=["auth", "login"]),
-    search_pattern="login",
-)
-print(report)
-```
-
-### Obtenir un premier code fonctionnel et itérer
-
-1. **Préparer le dépôt cible** : assurez-vous que `--root` pointe vers un projet réel (même minimal) contenant un fichier
-   README ou un squelette de code. Si l'index ne trouve rien, le plan LLM sera vide ou très succinct.
-2. **Lancer la première boucle** : exécutez la CLI avec une tâche explicite, quelques mots-clés et une recherche automatique
-   pour forcer l'inspection de code :
-
-   ```bash
-   python -m coder_brain.cli \
-     --task "Make a Tetris game" \
-     --root /path/to/project \
-     --keywords tetris gameplay grid \
-     --auto-search
-   ```
-
-   *Par défaut le fournisseur LLM est `mock` ; pour un plan plus riche, exportez `LLM_PROVIDER` et `LLM_MODEL` avant de
-   relancer la commande.*
-3. **Appliquer les suggestions** : implémentez manuellement les étapes proposées (ex. créer une boucle de jeu minimale,
-   dessiner la grille, ajouter la rotation des pièces). Une fois le code ajouté, relancez la CLI avec `--keywords` similaires
-   et, si besoin, `--search "<mot>"` pour vérifier que les fichiers nouvellement créés sont pris en compte.
-4. **Tester et affiner** : ajoutez `--test pytest` (ou un autre runner) pour valider automatiquement après chaque itération.
-   Continuez la boucle modifier ➜ relancer la CLI ➜ exécuter les tests jusqu'à obtenir un premier jeu jouable, puis itérez sur
-   les fonctionnalités (score, vitesse, UI, etc.).
-
-## Development
-
-### Automated setup
-
-To reproduce the complete installation and verification flow automatically, save the
-following script (for example as `install.sh`), adjust `REPO_DIR` if desired, and run it
-with `bash install.sh`:
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-REPO_URL="https://github.com/<your-org>/coder-brain.git"
-REPO_DIR="${HOME}/coder-brain"
-PYTHON_BIN="python3.11"
-
-# 1. Clone or update the repository
-if [ -d "${REPO_DIR}" ]; then
-  git -C "${REPO_DIR}" pull --ff-only
-else
-  git clone "${REPO_URL}" "${REPO_DIR}"
-fi
-
-cd "${REPO_DIR}"
-
-# 2. Create virtual environment
-"${PYTHON_BIN}" -m venv .venv
-source .venv/bin/activate
-
-# 3. Upgrade packaging tools
-pip install --upgrade pip setuptools wheel
-
-# 4. Install coder-brain with dev extras
-pip install -e .[dev]
-
-# 5. Run verification tests
-pytest
-```
-
-The script ensures Python 3.11+ is used, installs the project in editable mode with the
-development extras, and finishes by running the test suite to confirm the setup.
-
-### Manual setup
-
-Install dev dependencies and run tests manually:
-
-```bash
-pip install -e .[dev]
-pytest
 ```
