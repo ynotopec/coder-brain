@@ -46,7 +46,9 @@ export class ResponseAggregator {
       validResponses.push({
         source: 'chat',
         response: chatResult,
-        score: 0.5
+        // Keep fallback answers above the BrainSystem validity threshold so users
+        // still receive a useful response when structured engines return nothing.
+        score: 0.6
       });
     }
 
