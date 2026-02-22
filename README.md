@@ -20,9 +20,11 @@ npm install
 make run
 ```
 
+Cette commande lance le serveur web sur `http://localhost:8080`.
+
 Alternative sans Make:
 ```bash
-npm run run
+npm start
 ```
 
 ### Interface web
@@ -34,7 +36,7 @@ Puis ouvrez `http://localhost:8080` pour utiliser l'interface web moderne et pro
 ## Exemple reproductible (entrée/sortie)
 Commande:
 ```bash
-npm run run
+make run-cli
 ```
 
 Entrée utilisée par le script:
