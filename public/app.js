@@ -12,7 +12,10 @@ const metadataBlock = document.getElementById('metadataBlock');
 const setLoading = (isLoading) => {
   sendButton.disabled = isLoading;
   sendButton.textContent = isLoading ? 'Traitement…' : 'Envoyer';
-  statusTag.textContent = isLoading ? 'Analyse en cours' : 'Prêt';
+
+  if (isLoading) {
+    statusTag.textContent = 'Analyse en cours';
+  }
 };
 
 toggleAdvanced.addEventListener('click', () => {
@@ -38,13 +41,22 @@ form.addEventListener('submit', async (event) => {
   setLoading(true);
   responseText.classList.add('muted');
   responseText.textContent = 'Génération de la réponse…';
+  statusTag.textContent = 'Analyse en cours';
+  metadataBlock.textContent = '{}';
+  metadataDetails.hidden = !showMetadata.checked;
 
   try {
-    const result = await fetch('/api/process', {
+    const response = await fetch('/api/process', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ input: rawInput })
-    }).then((res) => res.json());
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
 
     if (result.error) {
       responseText.textContent = `Erreur: ${result.error}`;
@@ -67,6 +79,11 @@ form.addEventListener('submit', async (event) => {
     responseText.classList.remove('muted');
     responseText.textContent = `Erreur réseau: ${error.message}`;
     statusTag.textContent = 'Erreur';
+    metadataBlock.textContent = JSON.stringify(
+      { error: 'network_error', message: error.message },
+      null,
+      2
+    );
   } finally {
     setLoading(false);
   }
