@@ -31,6 +31,17 @@ const parseJsonObject = (text) => {
   }
 };
 
+const isFalseEmptyInputReply = (input, message) => {
+  const safeInput = String(input || '').trim();
+  const safeMessage = String(message || '').toLowerCase();
+
+  if (!safeInput || !safeMessage) {
+    return false;
+  }
+
+  return /(didn['’]t come through|please resend|message (didn['’]t|did not) come through)/i.test(safeMessage);
+};
+
 export class DirectReplier {
   constructor(llm) {
     this.llm = llm;
@@ -54,7 +65,7 @@ Return a JSON object with:
     const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
     const parsed = parseJsonObject(response);
 
-    if (parsed?.message) {
+    if (parsed?.message && !isFalseEmptyInputReply(context.context, parsed.message)) {
       return parsed;
     }
 
@@ -74,7 +85,7 @@ Return exactly:
     const repairResponse = await this.llm.generateCompletion([{ role: 'user', content: repairPrompt }]);
     const repaired = parseJsonObject(repairResponse);
 
-    if (repaired?.message) {
+    if (repaired?.message && !isFalseEmptyInputReply(context.context, repaired.message)) {
       return repaired;
     }
 
