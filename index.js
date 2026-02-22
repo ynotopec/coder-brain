@@ -212,7 +212,7 @@ export class BrainSystem {
   }
 
   async _canProcessDirectly(context) {
-    const prompt = `Can a smart LLM process this directly ?
+    const prompt = `Can an LLM alone satisfy the request?
 
 Context: "${context.context}"
 
