@@ -81,6 +81,13 @@ Return a JSON object with:
     }
   }
 
+
+  async generateChatResponse(input) {
+    const directReplier = new DirectReplier(this.llm);
+    const reply = await directReplier.generateChatResponse(input);
+    return reply.message || String(reply);
+  }
+
   async recordSafetyCheck(input, result) {
     const entry = {
       timestamp: new Date().toISOString(),
@@ -176,6 +183,8 @@ export class ObservabilityLog {
     this.responseFilters = [];
     this.errors = [];
     this.debugData = new Map();
+    this.finalResponses = [];
+    this.retries = [];
   }
 
   reset() {

@@ -1,29 +1,3 @@
-import OpenAI from 'openai';
-
-class OpenAIInterface {
-  constructor(apiKey) {
-    this.openai = new OpenAI({ apiKey });
-  }
-
-  async generateCompletion(messages, model = 'gpt-4.1', temperature = 0.7, maxTokens = 500) {
-    const response = await this.openai.chat.completions.create({
-      model,
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-    });
-    return response.choices[0].message.content;
-  }
-
-  async embed(text, model = 'text-embedding-3-small', inputFormat = 'text') {
-    const response = await this.openai.embeddings.create({
-      model,
-      input: [text],
-    });
-    return response.data[0].embedding;
-  }
-}
-
 export class ContextBuilder {
   constructor(llm, vectorStore, longTermMemory) {
     this.llm = llm;
@@ -136,7 +110,7 @@ export class LongTermMemory {
 
   async retrieve(query) {
     const embedding = await this.vectorStore.embed(query);
-    const results = await this.vectorStore.search(embedding, topK = 5);
+    const results = await this.vectorStore.search(embedding, 5);
     return results;
   }
 
