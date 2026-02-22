@@ -36,3 +36,27 @@ test('OpenAIInterface surfaces network errors when API is unreachable', async ()
     global.fetch = previousFetch;
   }
 });
+
+test('OpenAIInterface embed uses supported default encoding format', async () => {
+  const previousFetch = global.fetch;
+  let requestBody;
+
+  global.fetch = async (_url, options) => {
+    requestBody = JSON.parse(options.body);
+    return {
+      async json() {
+        return { data: [{ embedding: [0.1, 0.2] }] };
+      }
+    };
+  };
+
+  try {
+    const llm = new OpenAIInterface('test-key', { explicitOffline: false });
+    const embedding = await llm.embed('hello world');
+
+    assert.deepEqual(embedding, [0.1, 0.2]);
+    assert.equal(requestBody.encoding_format, 'float');
+  } finally {
+    global.fetch = previousFetch;
+  }
+});

@@ -51,7 +51,7 @@ class OpenAIInterface {
     return result;
   }
 
-  async embed(text, model = 'text-embedding-3-small', inputFormat = 'text') {
+  async embed(text, model = 'text-embedding-3-small', inputFormat = 'float') {
     if (this.explicitOffline) {
       return [1, ...Array(7).fill(0)];
     }
