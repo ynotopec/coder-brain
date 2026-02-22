@@ -27,4 +27,4 @@ Ce repository implémente un orchestrateur IA multi-phase conçu pour transforme
 - Runtime: Node.js 20+
 - Package manager: npm
 - Dépendances NPM listées dans `package.json` (pas de dépendance cachée)
-- Clé OpenAI facultative: sans clé, mode offline simulé
+- Clé OpenAI requise par défaut ; mode offline possible uniquement si activé explicitement (`OPENAI_OFFLINE=true`).

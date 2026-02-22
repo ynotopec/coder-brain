@@ -1,5 +1,60 @@
 import { OpenAIInterface } from '../common.js';
 
+const parseJsonObject = (text) => {
+  if (typeof text !== 'string') {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    const fenced = text.match(/```json\s*([\s\S]*?)\s*```/i);
+    if (fenced && fenced[1]) {
+      try {
+        return JSON.parse(fenced[1]);
+      } catch {
+        return null;
+      }
+    }
+
+    const objectMatch = text.match(/\{[\s\S]*\}/);
+    if (!objectMatch) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(objectMatch[0]);
+    } catch {
+      return null;
+    }
+  }
+};
+
+const detectFrench = (input) => /\b(quel|comment|pourquoi|bonjour|salut|merci|est|ton|ta|vous|tu|nom)\b/i.test(input);
+
+const buildLocalChatReply = (input) => {
+  const safeInput = String(input || '').trim();
+  const isFrench = detectFrench(safeInput);
+
+  if (/\b(quel est ton nom|ton nom|tu t['’]appelles comment|who are you|what('?s| is) your name)\b/i.test(safeInput)) {
+    return {
+      message: isFrench ? 'Je m\'appelle Coder Brain.' : 'My name is Coder Brain.',
+      engagement_level: 'medium',
+      topic_continuation: isFrench ? ['présentation'] : ['introduction'],
+      sentiment: 'positive'
+    };
+  }
+
+  return {
+    message: isFrench
+      ? `J'ai bien reçu : "${safeInput}". Que veux-tu faire ensuite ?`
+      : `I received: "${safeInput}". What would you like to do next?`,
+    engagement_level: 'medium',
+    topic_continuation: isFrench ? ['aide', 'objectif'] : ['help', 'goal'],
+    sentiment: 'positive'
+  };
+};
+
 export class DirectReplier {
   constructor(llm) {
     this.llm = llm;
@@ -7,6 +62,7 @@ export class DirectReplier {
 
   async generateDirectReply(context) {
     const prompt = `Generate a direct, conversational reply to this user input.
+Answer in the same language as the user.
 
 User Input: "${context.context}"
 Intent: ${context.query_type}
@@ -19,29 +75,41 @@ Return a JSON object with:
   "sentiment": "positive/neutral/negative"
 }`;
 
-    const response = await this.llm.generateCompletion([
-      { role: 'user', content: prompt }
-    ]);
+    const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
+    const parsed = parseJsonObject(response);
 
-    try {
-      return JSON.parse(response);
-    } catch (e) {
-      return {
-        message: `I understand you said "${context.context}". How else can I help?`,
-        engagement_level: 'medium',
-        topic_continuation: [],
-        sentiment: 'positive'
-      };
+    if (parsed?.message) {
+      return parsed;
     }
+
+    const repairPrompt = `You must return only valid JSON with no markdown and no extra text.
+Use the same language as the user.
+
+User input: "${context.context}"
+
+Return exactly:
+{
+  "message": "natural conversation response",
+  "engagement_level": "high/medium/low",
+  "topic_continuation": ["topics to continue with"],
+  "sentiment": "positive/neutral/negative"
+}`;
+
+    const repairResponse = await this.llm.generateCompletion([{ role: 'user', content: repairPrompt }]);
+    const repaired = parseJsonObject(repairResponse);
+
+    if (repaired?.message) {
+      return repaired;
+    }
+
+    return buildLocalChatReply(context.context);
   }
 
   async generateChatResponse(input) {
-    return {
-      message: `Thanks for sharing "${input}". What else is on your mind?`,
-      engagement_level: 'medium',
-      topic_continuation: ['ask about interests', 'offer help'],
-      sentiment: 'positive'
-    };
+    return this.generateDirectReply({
+      context: input,
+      query_type: 'chat'
+    });
   }
 }
 
@@ -65,22 +133,20 @@ Return a JSON object with:
   "suggested_action": "warn, block, ignore, or none"
 }`;
 
-    const response = await this.llm.generateCompletion([
-      { role: 'user', content: prompt }
-    ]);
+    const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
+    const parsed = parseJsonObject(response);
 
-    try {
-      return JSON.parse(response);
-    } catch (e) {
-      return {
-        needs_review: true,
-        concern: 'other',
-        confidence: 0.3,
-        suggested_action: 'warn'
-      };
+    if (parsed && typeof parsed.needs_review === 'boolean') {
+      return parsed;
     }
-  }
 
+    return {
+      needs_review: false,
+      concern: 'none',
+      confidence: 0.2,
+      suggested_action: 'none'
+    };
+  }
 
   async generateChatResponse(input) {
     const directReplier = new DirectReplier(this.llm);

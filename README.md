@@ -1,6 +1,6 @@
 # Coder Brain
 
-POC Node.js d’orchestration IA en 4 phases (contexte, exécution, agrégation, sortie) avec mode offline par défaut (aucune clé API requise pour un run de base).
+POC Node.js d’orchestration IA en 4 phases (contexte, exécution, agrégation, sortie) avec mode online par défaut (clé OpenAI requise), et mode offline uniquement si activé explicitement (`OPENAI_OFFLINE=true`).
 
 ## Démarrage en < 10 min
 

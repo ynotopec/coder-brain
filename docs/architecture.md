@@ -23,4 +23,4 @@ flowchart TD
 ## Notes de conception
 - Le système applique une boucle de retry contrôlée (`RetryGatekeeper`) en cas d’échec.
 - La sécurité est évaluée avant la génération chat et tracée dans `ObservabilityLog`.
-- Le mode offline garantit un comportement minimal sans API externe.
+- Le mode offline est opt-in uniquement (`OPENAI_OFFLINE=true`) ; sinon les erreurs API/réseau sont remontées.
