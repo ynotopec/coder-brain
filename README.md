@@ -44,10 +44,10 @@ Entrée utilisée par le script:
 
 Exemple de sortie (abrégée):
 ```text
-🚀 Buffer-System Quick Start
+🚀 Brain-System Quick Start
 💬 User Input: What is 42 + 58?
 💬 System Response: { ... metadata: { phase: "chat" ... } }
-✅ Setup complete! Your Buffer-System is ready.
+✅ Setup complete! Your Brain-System is ready.
 ```
 
 ## Structure

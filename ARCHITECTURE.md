@@ -1,10 +1,10 @@
-# Buffer-System Architecture Implementation
-# Following buffer-new.md mermaid diagram
+# Brain-System Architecture Implementation
+# Following brain architecture draft mermaid diagram
 
 ## Project Structure
 
 ```
-buffer-new/
+brain-system/
 ├── .env.example           # Environment variables template
 ├── .gitignore            # Git ignore file
 ├── package.json          # Project configuration

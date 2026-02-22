@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { BufferSystem } from '../index.js';
+import { BrainSystem } from '../index.js';
 import { ToolExecutor, ToolRegistry } from '../src/phase2/action-engine.js';
 
-test('BufferSystem hybrid intent forwards hybrid pipeline results into aggregation inputs', async () => {
-  const system = new BufferSystem();
+test('BrainSystem hybrid intent forwards hybrid pipeline results into aggregation inputs', async () => {
+  const system = new BrainSystem();
 
   const hybridResult = {
     rag: { answer: 'from rag', confidence: 0.8, has_information: true },
@@ -36,8 +36,8 @@ test('BufferSystem hybrid intent forwards hybrid pipeline results into aggregati
   assert.deepEqual(aggregatedInput.chat, hybridResult.chat);
 });
 
-test('BufferSystem action risk check evaluates dry-run output', async () => {
-  const system = new BufferSystem();
+test('BrainSystem action risk check evaluates dry-run output', async () => {
+  const system = new BrainSystem();
   const tool = system.toolRegistry.getTool('calc');
 
   const dryRunResult = { valid: true, estimated_impact: { risk_level: 'low' } };
@@ -67,4 +67,22 @@ test('ToolExecutor.verifyOutput returns deterministic fallback when no LLM is co
   assert.equal(result.verify, true);
   assert.equal(result.confidence, 0.5);
   assert.deepEqual(result.issues, []);
+});
+
+test('BrainSystem fallback includes explicit failure reason and metadata when attempts are invalid', async () => {
+  const system = new BrainSystem();
+
+  system._processSingleAttempt = async () => ({
+    isValid: false,
+    response: { answer: 'weak' },
+    qualityScore: 0.2
+  });
+  system.retryGatekeeper.shouldRetry = () => false;
+
+  const result = await system._processWithRetry('test input');
+
+  assert.equal(result.status, 'fallback');
+  assert.match(result.error, /Low confidence response/);
+  assert.equal(result.metadata.phase, 'fallback');
+  assert.equal(result.metadata.retries, 3);
 });
