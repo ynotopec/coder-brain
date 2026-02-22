@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coder Brain UI</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <p class="kicker">Coder Brain</p>
+        <h1>Une interface claire, moderne et progressive</h1>
+        <p class="subtitle">
+          Posez votre question. Les détails avancés restent disponibles seulement si vous en avez besoin.
+        </p>
+      </header>
+
+      <section class="chat-card" aria-label="Zone de conversation">
+        <form id="queryForm" class="query-form">
+          <label for="userInput">Votre demande</label>
+          <textarea
+            id="userInput"
+            name="input"
+            rows="3"
+            placeholder="Ex: Donne-moi un plan d'action pour améliorer la vitesse de mon API"
+            required
+          ></textarea>
+          <div class="actions-row">
+            <button id="sendButton" type="submit">Envoyer</button>
+            <button id="toggleAdvanced" class="ghost" type="button" aria-expanded="false" aria-controls="advancedPanel">
+              Options avancées
+            </button>
+          </div>
+        </form>
+
+        <aside id="advancedPanel" class="advanced-panel" hidden>
+          <label class="switch-line" for="showMetadata">
+            <input id="showMetadata" type="checkbox" />
+            <span>Afficher les métadonnées de traitement</span>
+          </label>
+          <p class="hint">Ces options restent discrètes pour garder l'interface lisible.</p>
+        </aside>
+
+        <section class="result" aria-live="polite">
+          <div class="result-head">
+            <h2>Réponse</h2>
+            <span id="statusTag" class="status-tag">Prêt</span>
+          </div>
+          <p id="responseText" class="response-text muted">La réponse apparaîtra ici.</p>
+
+          <details id="metadataDetails" class="metadata" hidden>
+            <summary>Détails du traitement</summary>
+            <pre id="metadataBlock"></pre>
+          </details>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

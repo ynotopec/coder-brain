@@ -25,6 +25,12 @@ Alternative sans Make:
 npm run run
 ```
 
+### Interface web
+```bash
+npm start
+```
+Puis ouvrez `http://localhost:8080` pour utiliser l'interface web moderne et progressive.
+
 ## Exemple reproductible (entrée/sortie)
 Commande:
 ```bash
