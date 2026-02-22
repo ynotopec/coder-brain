@@ -1,4 +1,5 @@
 import { OpenAIInterface } from '../common.js';
+import { buildLocalChatReply } from './chat-fallbacks.js';
 
 const parseJsonObject = (text) => {
   if (typeof text !== 'string') {
@@ -28,31 +29,6 @@ const parseJsonObject = (text) => {
       return null;
     }
   }
-};
-
-const detectFrench = (input) => /\b(quel|comment|pourquoi|bonjour|salut|merci|est|ton|ta|vous|tu|nom)\b/i.test(input);
-
-const buildLocalChatReply = (input) => {
-  const safeInput = String(input || '').trim();
-  const isFrench = detectFrench(safeInput);
-
-  if (/\b(quel est ton nom|ton nom|tu t['’]appelles comment|who are you|what('?s| is) your name)\b/i.test(safeInput)) {
-    return {
-      message: isFrench ? 'Je m\'appelle Coder Brain.' : 'My name is Coder Brain.',
-      engagement_level: 'medium',
-      topic_continuation: isFrench ? ['présentation'] : ['introduction'],
-      sentiment: 'positive'
-    };
-  }
-
-  return {
-    message: isFrench
-      ? `J'ai bien reçu : "${safeInput}". Que veux-tu faire ensuite ?`
-      : `I received: "${safeInput}". What would you like to do next?`,
-    engagement_level: 'medium',
-    topic_continuation: isFrench ? ['aide', 'objectif'] : ['help', 'goal'],
-    sentiment: 'positive'
-  };
 };
 
 export class DirectReplier {
