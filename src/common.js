@@ -42,11 +42,15 @@ class OpenAIInterface {
     });
 
     const data = await response.json();
-    if (data.error) {
-      throw new Error(`OpenAI API Error: ${data.error.message}`);
+    if (!response.ok || data.error) {
+      throw new Error(`OpenAI API Error: ${data.error?.message || response.statusText || 'Unknown completion failure'}`);
     }
 
     const result = data.choices[0]?.message?.content || '';
+    if (!result) {
+      throw new Error('OpenAI API Error: completion response did not include message content.');
+    }
+
     this.cache.set(cacheKey, result);
     return result;
   }
@@ -65,11 +69,16 @@ class OpenAIInterface {
     });
 
     const data = await response.json();
-    if (data.error) {
-      throw new Error(`OpenAI API Error: ${data.error.message}`);
+    if (!response.ok || data.error) {
+      throw new Error(`OpenAI API Error: ${data.error?.message || response.statusText || 'Unknown embedding failure'}`);
     }
 
-    return data.data[0]?.embedding || [1, ...Array(7).fill(0)];
+    const embedding = data.data[0]?.embedding;
+    if (!embedding) {
+      throw new Error('OpenAI API Error: embedding response did not include vector data.');
+    }
+
+    return embedding;
   }
 
   clearCache() {

@@ -44,6 +44,8 @@ test('OpenAIInterface embed uses supported default encoding format', async () =>
   global.fetch = async (_url, options) => {
     requestBody = JSON.parse(options.body);
     return {
+      ok: true,
+      statusText: 'OK',
       async json() {
         return { data: [{ embedding: [0.1, 0.2] }] };
       }
@@ -56,6 +58,51 @@ test('OpenAIInterface embed uses supported default encoding format', async () =>
 
     assert.deepEqual(embedding, [0.1, 0.2]);
     assert.equal(requestBody.encoding_format, 'float');
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+
+test('OpenAIInterface surfaces HTTP errors even when body has no API error object', async () => {
+  const previousFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: false,
+    statusText: 'Unauthorized',
+    async json() {
+      return {};
+    }
+  });
+
+  try {
+    const llm = new OpenAIInterface('test-key', { explicitOffline: false });
+
+    await assert.rejects(
+      llm.generateCompletion([{ role: 'user', content: 'hello' }]),
+      /Unauthorized/
+    );
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test('OpenAIInterface embed throws when vector data is missing from success response', async () => {
+  const previousFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    statusText: 'OK',
+    async json() {
+      return { data: [] };
+    }
+  });
+
+  try {
+    const llm = new OpenAIInterface('test-key', { explicitOffline: false });
+
+    await assert.rejects(
+      llm.embed('hello world'),
+      /did not include vector data/
+    );
   } finally {
     global.fetch = previousFetch;
   }
