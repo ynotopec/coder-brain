@@ -48,11 +48,15 @@ export class DirectReplier {
   }
 
   async generateDirectReply(context) {
+    const safeContext = typeof context === 'string'
+      ? { context, query_type: 'chat' }
+      : (context || { context: '', query_type: 'chat' });
+
     const prompt = `Generate a direct, conversational reply to this user input.
 Answer in the same language as the user.
 
-User Input: "${context.context}"
-Intent: ${context.query_type}
+User Input: "${safeContext.context}"
+Intent: ${safeContext.query_type}
 
 Return a JSON object with:
 {
@@ -65,14 +69,14 @@ Return a JSON object with:
     const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
     const parsed = parseJsonObject(response);
 
-    if (parsed?.message && !isFalseEmptyInputReply(context.context, parsed.message)) {
+    if (parsed?.message && !isFalseEmptyInputReply(safeContext.context, parsed.message)) {
       return parsed;
     }
 
     const repairPrompt = `You must return only valid JSON with no markdown and no extra text.
 Use the same language as the user.
 
-User input: "${context.context}"
+User input: "${safeContext.context}"
 
 Return exactly:
 {
@@ -85,11 +89,11 @@ Return exactly:
     const repairResponse = await this.llm.generateCompletion([{ role: 'user', content: repairPrompt }]);
     const repaired = parseJsonObject(repairResponse);
 
-    if (repaired?.message && !isFalseEmptyInputReply(context.context, repaired.message)) {
+    if (repaired?.message && !isFalseEmptyInputReply(safeContext.context, repaired.message)) {
       return repaired;
     }
 
-    return buildLocalChatReply(context.context);
+    return buildLocalChatReply(safeContext.context);
   }
 
   async generateChatResponse(input) {

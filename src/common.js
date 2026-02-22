@@ -7,8 +7,127 @@ class OpenAIInterface {
 
   _offlineCompletion(messages) {
     const last = messages[messages.length - 1]?.content || '';
+    const extractQuoted = (label) => {
+      const matcher = new RegExp(`${label}:\\s*"([\\s\\S]*?)"`);
+      return last.match(matcher)?.[1]?.trim() || '';
+    };
+
+    const userInput =
+      extractQuoted('User Input') ||
+      extractQuoted('Query') ||
+      extractQuoted('Context') ||
+      '';
+
+    const classifyIntent = (text) => {
+      const normalized = text.toLowerCase();
+      const hasAction = /(calc|calculate|compute|addition|add|sum|subtract|multiply|action|execute|run)/.test(normalized);
+      const hasQuery = /(why|what|who|when|where|how|explain|search|retrieve|find|capital|query|rag)/.test(normalized);
+
+      if (hasAction && hasQuery) return 'hybrid';
+      if (hasAction) return 'action';
+      if (hasQuery) return 'query';
+      return 'chat';
+    };
+
+    if (last.includes('Normalize and parse the following user input')) {
+      const intent = classifyIntent(userInput);
+      const keywords = userInput
+        .split(/\s+/)
+        .map((word) => word.replace(/[^\p{L}\p{N}_-]+/gu, ''))
+        .filter(Boolean)
+        .slice(0, 8);
+
+      return JSON.stringify({
+        normalized_text: userInput,
+        intent_type: intent,
+        entities: [],
+        keywords
+      });
+    }
+
+    if (last.includes('Build context for answering the following user query')) {
+      return JSON.stringify({
+        context: userInput,
+        relevant_memories: [],
+        query_type: classifyIntent(userInput),
+        retrieval_strategy: 'offline-fallback'
+      });
+    }
+
+    if (last.includes('Classify the following query context')) {
+      const intent = classifyIntent(userInput);
+      return JSON.stringify({ intent, confidence: 0.75, reasoning: 'Offline keyword classification' });
+    }
+
+    if (last.includes("Plan an action to accomplish the user's goal")) {
+      const numbers = Array.from(userInput.matchAll(/-?\d+(?:\.\d+)?/g), (m) => Number(m[0]));
+      const operation = userInput.toLowerCase().includes('subtract') ? 'subtract'
+        : userInput.toLowerCase().includes('multiply') ? 'multiply'
+          : 'add';
+
+      return JSON.stringify({
+        tool_id: 'calc',
+        tool_name: 'calculator',
+        confidence: 0.8,
+        parameters: { operation, a: numbers[0] ?? 0, b: numbers[1] ?? 0 },
+        requires_human_approval: false,
+        reasoning: 'Offline deterministic calculator plan'
+      });
+    }
+
+    if (last.includes('Validate this tool call by simulating the dry run')) {
+      return JSON.stringify({
+        valid: true,
+        warnings: [],
+        estimated_impact: { changes_made: 0, risk_level: 'low' }
+      });
+    }
+
+    if (last.includes('Check if this tool execution was high risk')) {
+      return JSON.stringify({ is_high_risk: false, issues: [], rollback_required: false });
+    }
+
+    if (last.includes('Verify if this tool output is correct and expected')) {
+      return JSON.stringify({ verify: true, issues: [], confidence: 0.8 });
+    }
+
+    if (last.includes('Perform a light safety check on this message')) {
+      return JSON.stringify({
+        needs_review: false,
+        concern: 'none',
+        confidence: 0.2,
+        suggested_action: 'none'
+      });
+    }
+
+    if (last.includes('Generate a direct, conversational reply to this user input')) {
+      return JSON.stringify({
+        message: `I received: "${userInput}". What would you like to do next?`,
+        engagement_level: 'medium',
+        topic_continuation: [],
+        sentiment: 'neutral'
+      });
+    }
+
+    if (last.includes('Answer this question using the provided context')) {
+      return JSON.stringify({
+        answer: `Offline answer for: ${userInput || 'your question'}`,
+        sources: [],
+        confidence: 0.6,
+        has_information: true
+      });
+    }
+
+    if (last.includes('Generate a helpful fallback message')) {
+      return JSON.stringify({
+        message: 'Je n’ai pas assez de contexte local pour répondre précisément.',
+        suggestions: ['Reformulez la question', 'Ajoutez plus de détails'],
+        sentiment: 'neutral'
+      });
+    }
+
     if (last.includes('Return JSON')) {
-      return JSON.stringify({ normalized_text: last.slice(0, 80), intent: 'chat', confidence: 0.5 });
+      return JSON.stringify({ normalized_text: userInput || last.slice(0, 80), intent: 'chat', confidence: 0.5 });
     }
     return 'I can help with that.';
   }

@@ -228,7 +228,13 @@ export class BrainSystem {
     );
 
     if (!results.length) {
-      return await this.ragEngine.answerGenerator.fallbackMessage(context.context);
+      const fallback = await this.ragEngine.answerGenerator.fallbackMessage(context.context);
+      return {
+        answer: fallback.message || 'Je ne dispose pas encore de sources indexées pour répondre précisément.',
+        sources: [],
+        confidence: 0.55,
+        has_information: true
+      };
     }
 
     const reranked = await this.ragEngine.reranker.rerank(results, context.context);
