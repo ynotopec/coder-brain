@@ -54,6 +54,14 @@ class OpenAIInterface {
       });
     }
 
+    if (last.includes('Can a smart LLM process this directly ?')) {
+      return JSON.stringify({
+        can_process_directly: false,
+        direct_answer: '',
+        confidence: 0.3
+      });
+    }
+
     if (last.includes('Classify the following query context')) {
       const intent = classifyIntent(userInput);
       return JSON.stringify({ intent, confidence: 0.75, reasoning: 'Offline keyword classification' });

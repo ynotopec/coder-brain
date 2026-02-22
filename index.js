@@ -191,11 +191,49 @@ export class BrainSystem {
   async _processSingleAttempt(input, attempt) {
     const phase1Input = await this.contextBuilder.normalizeInput(input);
     const context = await this.contextBuilder.buildContext(phase1Input);
+
+    const direct = await this._canProcessDirectly(context);
+    if (direct.can_process_directly && direct.direct_answer) {
+      const confidence = Number(direct.confidence || 0.9);
+      return {
+        source: 'chat',
+        response: { message: direct.direct_answer, confidence },
+        qualityScore: Math.max(0.6, confidence),
+        phase: 'chat',
+        isValid: true
+      };
+    }
+
     const intent = await this.intentRouter.route(context);
 
     this.observabilityLog.logDebug('intent', { input: phase1Input.normalized_text, intent });
 
     return await this._executeByIntent(context, intent, phase1Input);
+  }
+
+  async _canProcessDirectly(context) {
+    const prompt = `Can a smart LLM process this directly ?
+
+Context: "${context.context}"
+
+Return ONLY JSON:
+{
+  "can_process_directly": true/false,
+  "direct_answer": "short direct answer if true, else empty string",
+  "confidence": 0.0 to 1.0
+}`;
+
+    try {
+      const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
+      const parsed = JSON.parse(response);
+      return {
+        can_process_directly: Boolean(parsed?.can_process_directly),
+        direct_answer: String(parsed?.direct_answer || ''),
+        confidence: Number(parsed?.confidence || 0)
+      };
+    } catch {
+      return { can_process_directly: false, direct_answer: '', confidence: 0 };
+    }
   }
 
   async _executeByIntent(context, intent, phase1Input) {
@@ -306,7 +344,7 @@ export class BrainSystem {
         answer: fallback.message || 'Je ne dispose pas encore de sources indexées pour répondre précisément.',
         sources: [],
         confidence: 0.55,
-        has_information: true
+        has_information: false
       };
     }
 

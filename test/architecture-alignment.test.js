@@ -178,3 +178,56 @@ test('BrainSystem reports chat phase when aggregation falls back to chat after q
   assert.equal(result.source, 'chat');
   assert.equal(result.phase, 'chat');
 });
+
+test('BrainSystem marks empty-index RAG fallback as missing information', async () => {
+  const system = new BrainSystem();
+
+  system.ragEngine.queryPlanner.plan = async () => ({ parameters: { top_k: 3 } });
+  system.ragEngine.vectorStore.embed = async () => [0.1, 0.2, 0.3];
+  system.ragEngine.vectorStore.search = async () => [];
+  system.ragEngine.answerGenerator.fallbackMessage = async () => ({
+    message: "I'm sorry, but I wasn't able to provide the answer to your request right now."
+  });
+
+  const result = await system._executeRag({ context: '2 + 2 ?' });
+
+  assert.equal(result.has_information, false);
+  assert.equal(result.sources.length, 0);
+});
+
+
+
+
+
+test('BrainSystem can process direct LLM requests before routing to RAG', async () => {
+  const system = new BrainSystem();
+
+  system.contextBuilder.normalizeInput = async (input) => ({
+    normalized_text: input,
+    intent_type: 'query',
+    entities: [],
+    keywords: []
+  });
+  system.contextBuilder.buildContext = async (normalized) => ({
+    context: normalized.normalized_text,
+    query_type: 'query',
+    entities: []
+  });
+  system._canProcessDirectly = async () => ({
+    can_process_directly: true,
+    direct_answer: 'Réponse directe',
+    confidence: 0.99
+  });
+
+  let ragCalled = false;
+  system._executeRag = async () => {
+    ragCalled = true;
+    return null;
+  };
+
+  const result = await system._processSingleAttempt('question simple', 0);
+
+  assert.equal(ragCalled, false);
+  assert.equal(result.phase, 'chat');
+  assert.equal(result.response.message, 'Réponse directe');
+});
