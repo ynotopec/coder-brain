@@ -16,7 +16,7 @@
     "dotenv": "^16.4.0"
   },
   "devDependencies": {
-    "eslint": "^8.57.0",
+    "eslint": "^10.0.1",
     "openai": "^4.30.0"
   },
   "engines": {
