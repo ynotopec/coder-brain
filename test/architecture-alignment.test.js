@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { BrainSystem } from '../index.js';
 import { ToolExecutor, ToolRegistry } from '../src/phase2/action-engine.js';
+import { ResponseAggregator } from '../src/phase3/response-aggregator.js';
 
 test('BrainSystem hybrid intent forwards hybrid pipeline results into aggregation inputs', async () => {
   const system = new BrainSystem();
@@ -85,4 +86,24 @@ test('BrainSystem fallback includes explicit failure reason and metadata when at
   assert.match(result.error, /Low confidence response/);
   assert.equal(result.metadata.phase, 'fallback');
   assert.equal(result.metadata.retries, 3);
+});
+
+test('ResponseAggregator fallback-only path returns quality score above validity threshold', async () => {
+  const llm = { generateCompletion: async () => 'not-json' };
+  const aggregator = new ResponseAggregator(llm);
+
+  const result = await aggregator.aggregate(
+    {
+      rag: null,
+      action: null,
+      chat: null
+    },
+    {
+      context: 'Quelle est la capitale de la France ?',
+      query_type: 'chat'
+    }
+  );
+
+  assert.equal(result.source, 'chat');
+  assert.ok(result.qualityScore > 0.5);
 });
