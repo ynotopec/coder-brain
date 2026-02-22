@@ -59,6 +59,7 @@ Exemple de sortie (abrégée):
 ## Documentation projet
 - Vue d’ensemble: `docs/overview.md`
 - Architecture: `docs/architecture.md`
+- State flow (router + séquence critique): `docs/state-flow.md`
 - Cas d’usage: `USE_CASE.md`
 - Valeur métier: `VALUE.md`
 - Statut innovation: `INNOVATION_STATUS.md`
