@@ -53,8 +53,10 @@ form.addEventListener('submit', async (event) => {
     }
 
     responseText.classList.remove('muted');
-    responseText.textContent = result.response || result.message || 'Réponse indisponible.';
-    statusTag.textContent = result.phase ? `Phase: ${result.phase}` : 'Terminé';
+    responseText.textContent = result.response || result.answer || result.message || 'Réponse indisponible.';
+
+    const phase = result.phase || result.metadata?.phase;
+    statusTag.textContent = phase ? `Phase: ${phase}` : 'Terminé';
 
     if (showMetadata.checked) {
       metadataDetails.hidden = false;
