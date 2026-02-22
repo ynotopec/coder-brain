@@ -4,7 +4,7 @@ import { BufferSystem } from '../buffer-new/index.js';
 import { OpenAIInterface } from '../buffer-new/src/common.js';
 
 async function main() {
-  console.log('🚀 Buffer System Demonstration');
+  console.log('🚀 Coder Brain Demonstration');
   console.log('='.repeat(50));
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -15,7 +15,7 @@ async function main() {
   }
 
   try {
-    console.log('📊 Initializing Buffer System...');
+    console.log('📊 Initializing Coder Brain...');
 
     const system = new BufferSystem();
 
