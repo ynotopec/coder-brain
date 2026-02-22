@@ -5,7 +5,7 @@ Réduire le temps de traitement des demandes internes (Q&A technique, vérificat
 
 ## ⏱ Temps économisé (estimation)
 - Base: 20 à 30 min par demande (collecte contexte + formulation).
-- Avec Buffer System: 8 à 12 min.
+- Avec Coder Brain: 8 à 12 min.
 - **Gain estimé:** 12 à 18 min / demande (~40–60%).
 
 ## 💰 Coût évité/réduit (estimation)

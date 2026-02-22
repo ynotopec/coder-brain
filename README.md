@@ -1,4 +1,4 @@
-# Buffer System
+# Coder Brain
 
 POC Node.js d’orchestration IA en 4 phases (contexte, exécution, agrégation, sortie) avec mode offline par défaut (aucune clé API requise pour un run de base).
 
