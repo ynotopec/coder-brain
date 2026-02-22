@@ -1,0 +1,10 @@
+node_modules/
+.env
+*.log
+.env.local
+coverage/
+*.swp
+*.swo
+.DS_Store
+.buffer-system/
+test-results/

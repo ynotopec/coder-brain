@@ -1,0 +1,26 @@
+{
+  "name": "buffer-new-system",
+  "version": "1.0.0",
+  "description": "System architecture implementation from buffer-new.md",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "start:dev": "node --watch src/index.js",
+    "test": "node --test",
+    "lint": "eslint src/"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "openai": "^4.30.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
