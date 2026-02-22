@@ -207,7 +207,9 @@ export class BrainSystem {
       source: aggregated.source,
       response: aggregated.response,
       qualityScore: aggregated.qualityScore,
-      phase: results.phase,
+      // Reflect the effective response channel (rag/action/chat) rather than
+      // only the initial intent classification.
+      phase: aggregated.source || results.phase,
       isValid: aggregated.qualityScore > 0.5
     };
   }

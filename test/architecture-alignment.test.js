@@ -107,3 +107,27 @@ test('ResponseAggregator fallback-only path returns quality score above validity
   assert.equal(result.source, 'chat');
   assert.ok(result.qualityScore > 0.5);
 });
+
+test('BrainSystem reports chat phase when aggregation falls back to chat after query intent', async () => {
+  const system = new BrainSystem();
+
+  system._executeRag = async () => ({
+    message: 'not enough information',
+    suggestions: ['clarify'],
+    sentiment: 'neutral'
+  });
+  system.responseAggregator.aggregate = async () => ({
+    source: 'chat',
+    response: { message: 'please resend your request', confidence: 0.6 },
+    qualityScore: 0.6
+  });
+
+  const result = await system._executeByIntent(
+    { context: '' },
+    { intent: 'query' },
+    { normalized_text: '' }
+  );
+
+  assert.equal(result.source, 'chat');
+  assert.equal(result.phase, 'chat');
+});
