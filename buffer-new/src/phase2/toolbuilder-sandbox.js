@@ -1,5 +1,3 @@
-import { openai } from 'openai';
-
 export class GapDetector {
   constructor(vectorStore, llm) {
     this.vectorStore = vectorStore;

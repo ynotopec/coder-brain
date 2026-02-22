@@ -2,12 +2,10 @@ import { OpenAIInterface } from './src/common.js';
 import { ContextBuilder, IntentRouter, LongTermMemory } from './src/phase1/context.js';
 import { VectorStore, AnswerGenerator, QueryPlanner, Reranker } from './src/phase2/rag-engine.js';
 import { ToolRegistry, ActionPlanner, DryRunValidator, RiskChecker, ToolExecutor, RollbackManager } from './src/phase2/action-engine.js';
-import { GapDetector, ToolBuilderSandbox } from './src/phase2/toolbuilder-sandbox.js';
 import { HybridOrchestrator } from './src/phase2/hybrid-orchestrator.js';
 import { SafetyChecker, ObservabilityLog, DirectReplier } from './src/phase2/chat-safety.js';
-import { ResponseAggregator, ParallelEvaluator, FactChecker, SafetyPolicyValidator } from './src/phase3/response-aggregator.js';
+import { ResponseAggregator, ParallelEvaluator, QualityScoreCalculator } from './src/phase3/response-aggregator.js';
 import { RefinementManager, OutputWriter, RetryGatekeeper, SchemaAndEmbedder } from './src/phase4/output-learning.js';
-import { KnowledgeBaseSchema } from './src/common/schema.js';
 
 export class BufferSystem {
   constructor(config = {}) {
@@ -34,10 +32,6 @@ export class BufferSystem {
       rollbackManager: new RollbackManager(this.toolRegistry)
     };
 
-    this.toolBuilderSandbox = new ToolBuilderSandbox(
-      this.llm,
-      this.ragEngine.vectorStore
-    );
 
     this.hybridOrchestrator = new HybridOrchestrator({
       ragEnabled: true,
@@ -60,7 +54,7 @@ export class BufferSystem {
     });
     this.qualityCalculator = new QualityScoreCalculator();
 
-    this.refinementManager = new RefinementManager(this.llm);
+    this.refinementManager = new RefinementManager(this.llm, this.ragEngine.vectorStore);
     this.outputWriter = new OutputWriter(this.observabilityLog);
     this.retryGatekeeper = new RetryGatekeeper();
 
@@ -94,7 +88,7 @@ export class BufferSystem {
 
         const result = await this._processSingleAttempt(input, attempt);
 
-        if (result.isValid() && result.response) {
+        if (result.isValid && result.response) {
           const finalOutput = await this._postProcess(result);
           await this._saveToMemory(input, finalOutput, result.qualityScore);
           return finalOutput;
@@ -132,7 +126,7 @@ export class BufferSystem {
 
   async _executeByIntent(context, intent, phase1Input) {
     const results = {
-      input: input,
+      input: phase1Input.normalized_text,
       context,
       intent,
       phase: 'starting'
@@ -179,7 +173,8 @@ export class BufferSystem {
       return null;
     }
 
-    const results = await this.ragEngine.vectorStore.search(context.context);
+    const queryEmbedding = await this.ragEngine.vectorStore.embed(context.context);
+    const results = await this.ragEngine.vectorStore.search(queryEmbedding);
     const answer = await this.ragEngine.answerGenerator.generate(results, context.context);
 
     return answer;
