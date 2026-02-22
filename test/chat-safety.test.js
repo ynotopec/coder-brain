@@ -94,3 +94,26 @@ test('DirectReplier retries once with strict JSON when first output is unparseab
   assert.equal(reply.message, 'Je m\'appelle Coder Brain.');
   assert.equal(llm.callCount, 2);
 });
+
+test('DirectReplier ignores false empty-input replies and falls back to local answer', async () => {
+  const llm = new FakeLLM([
+    JSON.stringify({
+      message: "Hey, it looks like your message didn't come through. Could you please resend?",
+      engagement_level: 'high',
+      topic_continuation: ['question'],
+      sentiment: 'neutral'
+    }),
+    JSON.stringify({
+      message: "Hey, it looks like your message didn't come through. Could you please resend?",
+      engagement_level: 'high',
+      topic_continuation: ['question'],
+      sentiment: 'neutral'
+    })
+  ]);
+
+  const replier = new DirectReplier(llm);
+  const reply = await replier.generateChatResponse("Qu'elle est la capitale de la France ?");
+
+  assert.equal(reply.message, 'La capitale de la France est Paris.');
+  assert.equal(llm.callCount, 2);
+});
