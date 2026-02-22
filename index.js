@@ -1,3 +1,39 @@
+import fs from 'fs';
+import path from 'path';
+
+const loadEnvFile = () => {
+  const envPath = path.resolve(process.cwd(), '.env');
+  if (!fs.existsSync(envPath)) {
+    return;
+  }
+
+  const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+
+    const separatorIndex = trimmed.indexOf('=');
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const key = trimmed.slice(0, separatorIndex).trim();
+    let value = trimmed.slice(separatorIndex + 1).trim();
+
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+
+    if (!(key in process.env)) {
+      process.env[key] = value;
+    }
+  }
+};
+
+loadEnvFile();
+
 import { OpenAIInterface } from './src/common.js';
 import { ContextBuilder, IntentRouter, LongTermMemory } from './src/phase1/context.js';
 import { VectorStore, AnswerGenerator, QueryPlanner, Reranker } from './src/phase2/rag-engine.js';
@@ -33,25 +69,24 @@ export class BufferSystem {
     };
 
 
+    this.safetyChecker = new SafetyChecker(this.llm, this.observabilityLog);
+    this.chatReplier = new DirectReplier(this.llm);
+
     this.hybridOrchestrator = new HybridOrchestrator({
       ragEnabled: true,
       actionEnabled: true,
-      chatEnabled: true
+      chatEnabled: true,
+      chatHandler: async (context) => {
+        const message = await this.safetyChecker.generateChatResponse(context.context);
+        return { message, type: 'chat', confidence: 0.8 };
+      }
     });
-
-    this.safetyChecker = new SafetyChecker(this.llm, this.observabilityLog);
-    this.chatReplier = new DirectReplier(this.llm);
 
     this.responseAggregator = new ResponseAggregator(this.llm);
     this.parallelEvaluator = new ParallelEvaluator(null, null, null, this.llm);
     this.parallelEvaluator.ragResults = null;
     this.parallelEvaluator.actionResults = null;
     this.parallelEvaluator.chatResults = null;
-    this.parallelEvaluator.evaluateAll = async () => ({
-      rag: { score: 0.8 },
-      action: { score: 0.9 },
-      chat: { score: 0.7 }
-    });
     this.qualityCalculator = new QualityScoreCalculator();
 
     this.refinementManager = new RefinementManager(this.llm, this.ragEngine.vectorStore);

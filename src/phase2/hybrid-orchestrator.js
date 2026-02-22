@@ -1,4 +1,4 @@
-import { VectorStore } from './rag-engine.js';
+import { VectorStore, AnswerGenerator } from './rag-engine.js';
 import { ToolRegistry } from './action-engine.js';
 
 export class HybridOrchestrator {
@@ -6,8 +6,11 @@ export class HybridOrchestrator {
     this.ragEnabled = config.ragEnabled !== false;
     this.actionEnabled = config.actionEnabled !== false;
     this.chatEnabled = config.chatEnabled !== false;
-    this.vectorStore = new VectorStore();
-    this.toolRegistry = new ToolRegistry();
+    this.vectorStore = config.vectorStore || new VectorStore();
+    this.toolRegistry = config.toolRegistry || new ToolRegistry();
+    this.chatHandler = config.chatHandler || null;
+    this.actionHandler = config.actionHandler || null;
+    this.simulationEnabled = config.simulationEnabled === true || process.env.BUFFER_SIMULATION === 'true';
   }
 
   async orchestrate(context, options = {}) {
@@ -57,6 +60,14 @@ export class HybridOrchestrator {
 
   async runActionPipeline(context) {
     try {
+      if (this.actionHandler) {
+        return await this.actionHandler(context);
+      }
+
+      if (!this.simulationEnabled) {
+        return null;
+      }
+
       const execution = await this.toolRegistry.introspect('example_tool');
       if (!execution) {
         return null;
@@ -74,6 +85,14 @@ export class HybridOrchestrator {
   }
 
   async runChatPipeline(context) {
+    if (this.chatHandler) {
+      return await this.chatHandler(context);
+    }
+
+    if (!this.simulationEnabled) {
+      throw new Error('No chat handler configured for hybrid pipeline');
+    }
+
     return {
       message: `Chat response for: ${context.context}`,
       type: 'chat',
@@ -111,7 +130,11 @@ Failed Phase: ${phase}
 
 Return JSON: { new_approach: "rag|action|chat", reasoning: "..." }`;
 
-      const response = 'new_approach';
+      if (!this.simulationEnabled) {
+        throw new Error('Hybrid re-plan requires simulation mode or a real planner implementation');
+      }
+
+      const response = '{"new_approach": "chat", "reasoning": "simulation mode"}';
       const result = JSON.parse(response);
       return {
         newApproach: result.new_approach,
