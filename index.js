@@ -43,7 +43,7 @@ import { SafetyChecker, ObservabilityLog, DirectReplier } from './src/phase2/cha
 import { ResponseAggregator, ParallelEvaluator, QualityScoreCalculator } from './src/phase3/response-aggregator.js';
 import { RefinementManager, OutputWriter, RetryGatekeeper, SchemaAndEmbedder } from './src/phase4/output-learning.js';
 
-export class BufferSystem {
+export class BrainSystem {
   constructor(config = {}) {
     this.llm = new OpenAIInterface(process.env.OPENAI_API_KEY);
     this.observabilityLog = new ObservabilityLog();
@@ -102,7 +102,7 @@ export class BufferSystem {
     try {
       return await this._processWithRetry(input);
     } catch (error) {
-      console.error('[BUFFER SYSTEM] Critical error:', error);
+      console.error('[BRAIN SYSTEM] Critical error:', error);
       this.observabilityLog.logError('critical', error.message);
 
       return {
@@ -128,9 +128,12 @@ export class BufferSystem {
           await this._saveToMemory(input, finalOutput, result.qualityScore);
           return finalOutput;
         }
+
+        const qualityScore = typeof result?.qualityScore === 'number' ? result.qualityScore : 'n/a';
+        throw new Error(`Low confidence response (score=${qualityScore})`);
       } catch (error) {
         lastError = error;
-        console.warn(`[BUFFER SYSTEM] Attempt ${attempt} failed:`, error.message);
+        console.warn(`[BRAIN SYSTEM] Attempt ${attempt} failed:`, error.message);
         this.observabilityLog.logError('attempt', error.message);
 
         if (attempt < maxRetries && this.retryGatekeeper.shouldRetry(error.message)) {
@@ -144,8 +147,13 @@ export class BufferSystem {
 
     return {
       status: 'fallback',
-      message: 'Multiple attempts failed, providing fallback response',
-      error: lastError?.message || 'Unknown error'
+      message: 'Impossible de générer une réponse fiable pour le moment. Merci de reformuler votre demande.',
+      error: lastError?.message || 'Échec de traitement sans détail technique',
+      metadata: {
+        phase: 'fallback',
+        retries: maxRetries + 1,
+        timestamp: new Date().toISOString()
+      }
     };
   }
 
@@ -333,3 +341,6 @@ Return JSON: { refined: "refined input" }`;
     );
   }
 }
+
+
+export { BrainSystem as BufferSystem };

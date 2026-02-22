@@ -1,7 +1,7 @@
 {
-  "name": "buffer-new-system",
+  "name": "brain-system",
   "version": "1.0.0",
-  "description": "System architecture implementation from buffer-new.md",
+  "description": "System architecture implementation from brain architecture draft",
   "main": "src/server.js",
   "type": "module",
   "scripts": {

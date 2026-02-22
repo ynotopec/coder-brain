@@ -57,10 +57,16 @@ form.addEventListener('submit', async (event) => {
     }
 
     const result = await response.json();
+    metadataBlock.textContent = JSON.stringify(result, null, 2);
 
     if (result.error) {
       responseText.textContent = `Erreur: ${result.error}`;
       statusTag.textContent = 'Erreur';
+
+      if (showMetadata.checked) {
+        metadataDetails.hidden = false;
+      }
+
       return;
     }
 
@@ -73,8 +79,6 @@ form.addEventListener('submit', async (event) => {
     if (showMetadata.checked) {
       metadataDetails.hidden = false;
     }
-
-    metadataBlock.textContent = JSON.stringify(result, null, 2);
   } catch (error) {
     responseText.classList.remove('muted');
     responseText.textContent = `Erreur réseau: ${error.message}`;

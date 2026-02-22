@@ -2,7 +2,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { BufferSystem } from '../index.js';
+import { BrainSystem } from '../index.js';
 
 const PORT = 8080;
 const HOST = '0.0.0.0';
@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publicDir = path.join(__dirname, '../public');
 
-const system = new BufferSystem();
+const system = new BrainSystem();
 
 const contentTypes = {
   '.html': 'text/html; charset=utf-8',

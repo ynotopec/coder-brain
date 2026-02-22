@@ -1,13 +1,13 @@
-import { BufferSystem } from './index.js';
+import { BrainSystem } from './index.js';
 import { OpenAIInterface } from './src/common.js';
 
 process.env.OPENAI_OFFLINE = process.env.OPENAI_OFFLINE || 'true';
 
-console.log('🧪 Testing BufferSystem Implementation');
+console.log('🧪 Testing BrainSystem Implementation');
 
-const system = new BufferSystem();
+const system = new BrainSystem();
 
-console.log('✅ BufferSystem created successfully');
+console.log('✅ BrainSystem created successfully');
 console.log('');
 
 const result = await system.processUserInput('What is 10 + 20?');
