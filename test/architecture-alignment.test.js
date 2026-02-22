@@ -61,6 +61,53 @@ test('BrainSystem action risk check evaluates dry-run output', async () => {
   assert.deepEqual(riskCheckInput.parameters, { operation: 'add', a: 1, b: 2 });
 });
 
+test('BrainSystem executes high-risk action when HITL approval is granted', async () => {
+  const system = new BrainSystem();
+  const tool = system.toolRegistry.getTool('calc');
+
+  system.actionEngine.actionPlanner.plan = async () => ({
+    tool,
+    parameters: { operation: 'add', a: 3, b: 4 }
+  });
+  system.actionEngine.dryRunValidator.validate = async () => ({ valid: true });
+  system.actionEngine.riskChecker.checkRisk = async () => ({ is_high_risk: true });
+  system.toolBuilder.hitlApprover.getApproval = async () => ({ approved: true, reason: 'ok' });
+
+  const result = await system._executeAction({ context: 'add 3 and 4' });
+
+  assert.equal(result.success, true);
+  assert.equal(result.result, 7);
+});
+
+test('BrainSystem attempts toolbuilder sandbox when no tool is available', async () => {
+  const system = new BrainSystem();
+  const tool = system.toolRegistry.getTool('calc');
+  let sandboxCalled = false;
+
+  system.actionEngine.actionPlanner.plan = async () => {
+    if (!sandboxCalled) {
+      return null;
+    }
+
+    return {
+      tool,
+      parameters: { operation: 'add', a: 2, b: 5 }
+    };
+  };
+  system._runToolBuilderSandbox = async () => {
+    sandboxCalled = true;
+    return true;
+  };
+  system.actionEngine.dryRunValidator.validate = async () => ({ valid: true });
+  system.actionEngine.riskChecker.checkRisk = async () => ({ is_high_risk: false });
+
+  const result = await system._executeAction({ context: 'needs tool' });
+
+  assert.equal(sandboxCalled, true);
+  assert.equal(result.success, true);
+  assert.equal(result.result, 7);
+});
+
 test('ToolExecutor.verifyOutput returns deterministic fallback when no LLM is configured', async () => {
   const executor = new ToolExecutor(new ToolRegistry());
   const result = await executor.verifyOutput({ any: 'result' });

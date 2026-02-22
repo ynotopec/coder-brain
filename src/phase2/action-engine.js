@@ -209,15 +209,14 @@ Return a JSON object with:
   "confidence": 0.0 to 1.0
 }`;
 
-    const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
-
     try {
+      const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
       return JSON.parse(response);
     } catch (e) {
       return {
         verify: true,
         issues: [],
-        confidence: 0.7
+        confidence: 0.5
       };
     }
   }
