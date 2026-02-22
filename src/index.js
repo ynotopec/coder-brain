@@ -1,27 +1,16 @@
 #!/usr/bin/env node
 
-import { BufferSystem } from './src/index.js';
-import * as dotenv from 'dotenv';
-
-dotenv.config();
+import { BufferSystem } from '../index.js';
 
 console.log('🚀 Buffer-System Quick Start');
 
-const apiKey = process.env.OPENAI_API_KEY;
-if (!apiKey) {
-  console.error('❌ ERROR: OPENAI_API_KEY environment variable is required');
-  console.log('\n📝 Setup instructions:');
-  console.log('1. Copy .env.example to .env');
-  console.log('2. Add your OpenAI API key');
-  console.log('3. Run: node src/index.js');
-  process.exit(1);
-}
+const system = new BufferSystem();
+const input = 'What is 42 + 58?';
 
 try {
-  const system = new BufferSystem();
-  const result = await system.processUserInput('What is 42 + 58?');
+  const result = await system.processUserInput(input);
 
-  console.log('\n💬 User Input:', 'What is 42 + 58?');
+  console.log('\n💬 User Input:', input);
   console.log('💬 System Response:', result);
   console.log('');
   console.log('✅ Setup complete! Your Buffer-System is ready.');
