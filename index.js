@@ -64,7 +64,7 @@ export class BufferSystem {
       actionPlanner: new ActionPlanner(this.llm, this.toolRegistry),
       dryRunValidator: new DryRunValidator(this.llm),
       riskChecker: new RiskChecker(this.llm),
-      toolExecutor: new ToolExecutor(this.toolRegistry),
+      toolExecutor: new ToolExecutor(this.toolRegistry, this.llm),
       rollbackManager: new RollbackManager(this.toolRegistry)
     };
 
@@ -181,6 +181,9 @@ export class BufferSystem {
       case 'hybrid':
         results.phase = 'hybrid';
         results.all = await this.hybridOrchestrator.orchestrate(context);
+        results.rag = results.all?.rag || null;
+        results.action = results.all?.action || null;
+        results.chat = results.all?.chat || null;
         break;
 
       case 'chat':
@@ -209,8 +212,17 @@ export class BufferSystem {
     }
 
     const queryEmbedding = await this.ragEngine.vectorStore.embed(context.context);
-    const results = await this.ragEngine.vectorStore.search(queryEmbedding);
-    const answer = await this.ragEngine.answerGenerator.generate(results, context.context);
+    const results = await this.ragEngine.vectorStore.search(
+      queryEmbedding,
+      planner?.parameters?.top_k || 5
+    );
+
+    if (!results.length) {
+      return await this.ragEngine.answerGenerator.fallbackMessage(context.context);
+    }
+
+    const reranked = await this.ragEngine.reranker.rerank(results, context.context);
+    const answer = await this.ragEngine.answerGenerator.generate(reranked, context.context);
 
     return answer;
   }
@@ -225,7 +237,7 @@ export class BufferSystem {
     const toolId = plan.tool.id;
 
     const dryRun = await this.actionEngine.dryRunValidator.validate(plan.tool, plan.parameters);
-    const risk = await this.actionEngine.riskChecker.checkRisk(plan.result, plan.parameters);
+    const risk = await this.actionEngine.riskChecker.checkRisk(dryRun, plan.parameters);
 
     if (risk.is_high_risk) {
       console.warn('[ACTION] High risk detected, skipping execution');

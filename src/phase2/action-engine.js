@@ -160,8 +160,9 @@ Return a JSON object with:
 }
 
 export class ToolExecutor {
-  constructor(toolRegistry) {
+  constructor(toolRegistry, llm = null) {
     this.toolRegistry = toolRegistry;
+    this.llm = llm;
   }
 
   async execute(toolId, parameters) {
@@ -189,6 +190,14 @@ export class ToolExecutor {
   }
 
   async verifyOutput(result) {
+    if (!this.llm) {
+      return {
+        verify: true,
+        issues: [],
+        confidence: 0.5
+      };
+    }
+
     const prompt = `Verify if this tool output is correct and expected.
 
 Tool Result: ${JSON.stringify(result)}
