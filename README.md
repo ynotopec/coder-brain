@@ -1,137 +1,65 @@
-# coder-brain
+# Coder Brain
 
-`coder-brain` is a lightweight prototype of a developer assistant that mimics a few human cognition patterns:
+POC Node.js d’orchestration IA en 4 phases (contexte, exécution, agrégation, sortie) avec mode online par défaut (clé OpenAI requise), et mode offline uniquement si activé explicitement (`OPENAI_OFFLINE=true`).
 
-- **Long-term memory** via repository indexing and summaries.
-- **Working memory** via a small sliding window of relevant files.
-- **Tool use** (`search`, `test`) instead of keeping everything in context.
-- **Planning** via a deterministic mock model or an OpenAI-compatible LLM.
+## Démarrage en < 10 min
 
-## Quickstart
+### Prérequis
+- Node.js >= 20
+- npm >= 10
 
-### 1) Install
-
+### Installation
 ```bash
-pip install -e .
+npm install
 ```
 
-For development:
+> Option déterministe recommandée quand `package-lock.json` est présent: `npm ci`.
 
+### Lancement en une commande
 ```bash
-pip install -e .[dev]
+make run
 ```
 
-### 2) Run the CLI
+Cette commande lance le serveur web sur `http://localhost:8080`.
 
+Alternative sans Make:
 ```bash
-python -m coder_brain.cli \
-  --task "Fix login redirect bug" \
-  --root /path/to/project \
-  --keywords login redirect \
-  --auto-search
+npm start
 ```
 
-By default, the project runs with the deterministic **mock** model, so it works offline.
-
-### 3) Optional: use a real LLM
-
+### Interface web
 ```bash
-python -m coder_brain.cli \
-  --task "Fix login redirect bug" \
-  --root /path/to/project \
-  --llm-provider openai \
-  --llm-model gpt-4o-mini
+npm start
 ```
+Puis ouvrez `http://localhost:8080` pour utiliser l'interface web moderne et progressive.
 
-To use provider credentials/endpoints from environment variables, initialize the agent programmatically with `LLMConfig.from_env()` (example below).
-
----
-
-## How it works
-
-1. **Indexing**: `ProjectIndexer` scans files and builds quick previews/summaries.
-2. **Long-term memory**: file and module summaries are persisted in-memory for retrieval.
-3. **Working memory**: the top relevant files are loaded into a small context window.
-4. **Planning**: the language model produces a concise implementation plan.
-5. **Execution helpers**: optional code search and test command execution are appended to the report.
-
-## CLI reference
-
-| Flag | Required | Description |
-| --- | --- | --- |
-| `--root PATH` | Yes | Project root to inspect. |
-| `--task TEXT` | Yes | Task description. |
-| `--keywords ...` | No | Keywords for file selection and auto-search. |
-| `--search PATTERN` | No | Pattern to search in selected files. |
-| `--auto-search` | No | If `--search` is missing, search first derived keyword. |
-| `--test ...` | No | Test command tokens (example: `--test pytest -q`). |
-| `--llm-provider NAME` | No* | LLM provider (for example `mock`, `openai`). |
-| `--llm-model NAME` | No* | Model name. |
-| `--llm-max-tokens N` | No | Max output tokens requested from LLM (default: `1024`). |
-| `--llm-temperature F` | No | Sampling temperature (default: `0.2`). |
-
-\* `--llm-provider` and `--llm-model` must be provided together.
-
-## Environment variables (`LLM_*`)
-
-The `LLMConfig` helper supports the following variables:
-
-- `LLM_PROVIDER`
-- `LLM_MODEL`
-- `LLM_API_KEY`
-- `LLM_BASE_URL` (or `LLM_ENDPOINT`)
-- `LLM_MAX_TOKENS` (default `1024`)
-- `LLM_TEMPERATURE` (default `0.2`)
-
-The CLI does **not** auto-read these variables directly; they are used when building `LLMConfig.from_env()` in Python.
-
-## Programmatic usage
-
-```python
-from pathlib import Path
-
-from coder_brain.agent import CoderBrainAgent, Task
-from coder_brain.llm import LLMConfig
-
-agent = CoderBrainAgent(
-    Path("/path/to/project"),
-    llm_config=LLMConfig.from_env(),  # optional; falls back to mock model when None
-)
-
-report = agent.perform_task(
-    Task(
-        description="Harden authentication flow",
-        keywords=["auth", "login"],
-        test_command=["pytest", "-q"],
-    ),
-    auto_search=True,
-)
-print(report)
-```
-
-## Development
-
-Run tests:
-
+## Exemple reproductible (entrée/sortie)
+Commande:
 ```bash
-pytest
+make run-cli
 ```
 
-## Architecture diagram
+Entrée utilisée par le script:
+- `What is 42 + 58?`
 
-```mermaid
-flowchart LR
-    Task["Task input"] --> Agent["Agent orchestration"]
-    Agent --> WM["Working memory\\n(sliding context)"]
-    Agent --> Index["Indexing service"]
-    Agent --> Tools["Tool controller"]
-    WM --> Agent
-    Index --> Agent
-    Tools --> Agent
-    Index --> Repo["Code repository"]
-    Tools --> Search["Search / navigation"]
-    Tools --> Tests["Test runner"]
-    Search --> Repo
-    Tests --> Repo
-    Repo --> Index
+Exemple de sortie (abrégée):
+```text
+🚀 Brain-System Quick Start
+💬 User Input: What is 42 + 58?
+💬 System Response: { ... metadata: { phase: "chat" ... } }
+✅ Setup complete! Your Brain-System is ready.
 ```
+
+## Structure
+- `src/phase1`: normalisation + routage d’intention
+- `src/phase2`: moteurs RAG / action / hybrid / chat safety
+- `src/phase3`: agrégation et scoring qualité
+- `src/phase4`: finalisation et mémoire
+
+## Documentation projet
+- Vue d’ensemble: `docs/overview.md`
+- Architecture: `docs/architecture.md`
+- State flow (router + séquence critique): `docs/state-flow.md`
+- Cas d’usage: `USE_CASE.md`
+- Valeur métier: `VALUE.md`
+- Statut innovation: `INNOVATION_STATUS.md`

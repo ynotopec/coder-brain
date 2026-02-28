@@ -1,0 +1,25 @@
+{
+  "name": "brain-system",
+  "version": "1.0.0",
+  "description": "System architecture implementation from brain architecture draft",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:dev": "node --watch src/server.js",
+    "test": "node --test",
+    "lint": "eslint src/",
+    "run": "node src/index.js"
+  },
+  "keywords": [],
+  "dependencies": {
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "eslint": "^10.0.1",
+    "openai": "^4.30.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,94 @@
+const form = document.getElementById('queryForm');
+const input = document.getElementById('userInput');
+const responseText = document.getElementById('responseText');
+const statusTag = document.getElementById('statusTag');
+const sendButton = document.getElementById('sendButton');
+const toggleAdvanced = document.getElementById('toggleAdvanced');
+const advancedPanel = document.getElementById('advancedPanel');
+const showMetadata = document.getElementById('showMetadata');
+const metadataDetails = document.getElementById('metadataDetails');
+const metadataBlock = document.getElementById('metadataBlock');
+
+const setLoading = (isLoading) => {
+  sendButton.disabled = isLoading;
+  sendButton.textContent = isLoading ? 'Traitement…' : 'Envoyer';
+
+  if (isLoading) {
+    statusTag.textContent = 'Analyse en cours';
+  }
+};
+
+toggleAdvanced.addEventListener('click', () => {
+  const isExpanded = toggleAdvanced.getAttribute('aria-expanded') === 'true';
+  toggleAdvanced.setAttribute('aria-expanded', String(!isExpanded));
+  advancedPanel.hidden = isExpanded;
+});
+
+showMetadata.addEventListener('change', () => {
+  metadataDetails.hidden = !showMetadata.checked;
+});
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  const rawInput = input.value.trim();
+  if (!rawInput) {
+    responseText.textContent = 'Merci de saisir une demande.';
+    responseText.classList.remove('muted');
+    return;
+  }
+
+  setLoading(true);
+  responseText.classList.add('muted');
+  responseText.textContent = 'Génération de la réponse…';
+  statusTag.textContent = 'Analyse en cours';
+  metadataBlock.textContent = '{}';
+  metadataDetails.hidden = !showMetadata.checked;
+
+  try {
+    const response = await fetch('/api/process', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: rawInput })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+    metadataBlock.textContent = JSON.stringify(result, null, 2);
+
+    if (result.error) {
+      responseText.textContent = `Erreur: ${result.error}`;
+      statusTag.textContent = 'Erreur';
+
+      if (showMetadata.checked) {
+        metadataDetails.hidden = false;
+      }
+
+      return;
+    }
+
+    responseText.classList.remove('muted');
+    responseText.textContent = result.response || result.answer || result.message || 'Réponse indisponible.';
+
+    const phase = result.phase || result.metadata?.phase;
+    statusTag.textContent = phase ? `Phase: ${phase}` : 'Terminé';
+
+    if (showMetadata.checked) {
+      metadataDetails.hidden = false;
+    }
+  } catch (error) {
+    responseText.classList.remove('muted');
+    responseText.textContent = `Erreur réseau: ${error.message}`;
+    statusTag.textContent = 'Erreur';
+    metadataBlock.textContent = JSON.stringify(
+      { error: 'network_error', message: error.message },
+      null,
+      2
+    );
+  } finally {
+    setLoading(false);
+  }
+});
