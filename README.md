@@ -8,12 +8,21 @@ POC Node.js d’orchestration IA en 4 phases (contexte, exécution, agrégation,
 - Node.js >= 20
 - npm >= 10
 
-### Installation
+### Installation déterministe
 ```bash
-npm install
+make install
 ```
 
-> Option déterministe recommandée quand `package-lock.json` est présent: `npm ci`.
+Cette commande utilise `npm ci` pour garantir une installation reproductible via `package-lock.json`.
+
+### Configuration explicite
+Copiez le fichier d’exemple puis choisissez un mode:
+```bash
+cp .env.example .env
+```
+
+- Mode online: renseigner `OPENAI_API_KEY`
+- Mode offline: mettre `OPENAI_OFFLINE=true`
 
 ### Lancement en une commande
 ```bash
@@ -36,7 +45,7 @@ Puis ouvrez `http://localhost:8080` pour utiliser l'interface web moderne et pro
 ## Exemple reproductible (entrée/sortie)
 Commande:
 ```bash
-make run-cli
+make run-cli-offline
 ```
 
 Entrée utilisée par le script:
@@ -63,3 +72,4 @@ Exemple de sortie (abrégée):
 - Cas d’usage: `USE_CASE.md`
 - Valeur métier: `VALUE.md`
 - Statut innovation: `INNOVATION_STATUS.md`
+- Prompt agent projet: `AGENT_PROJECT_PROMPT.md`
