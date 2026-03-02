@@ -20,11 +20,14 @@ Ce repository implémente un orchestrateur IA multi-phase conçu pour transforme
    - Décide la persistance en mémoire
 
 ## Exécution
-- Entrée principale: `npm run run` (fichier `src/index.js`)
-- API HTTP: `npm start` (fichier `src/server.js`)
+- Entrée principale CLI: `make run-cli` (fichier `src/index.js`)
+- Démo locale reproductible: `make run-cli-offline`
+- API HTTP: `make run` ou `npm start` (fichier `src/server.js`)
 
 ## Dépendances explicites
 - Runtime: Node.js 20+
 - Package manager: npm
+- Installation déterministe recommandée: `npm ci` (via `make install`)
 - Dépendances NPM listées dans `package.json` (pas de dépendance cachée)
+- Variables d’environnement explicites via `.env.example`
 - Clé OpenAI requise par défaut ; mode offline possible uniquement si activé explicitement (`OPENAI_OFFLINE=true`).

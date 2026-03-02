@@ -1,13 +1,16 @@
-.PHONY: install run run-cli test
+.PHONY: install run run-cli run-cli-offline test
 
 install:
-	npm install
+	npm ci
 
 run:
 	npm start
 
 run-cli:
 	npm run run
+
+run-cli-offline:
+	OPENAI_OFFLINE=true npm run run
 
 test:
 	npm test
