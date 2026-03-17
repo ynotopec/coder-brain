@@ -107,3 +107,25 @@ test('OpenAIInterface embed throws when vector data is missing from success resp
     global.fetch = previousFetch;
   }
 });
+
+test('OpenAIInterface offline normalization preserves alphanumeric keywords', async () => {
+  const llm = new OpenAIInterface(undefined, { explicitOffline: true });
+  const response = await llm.generateCompletion([{
+    role: 'user',
+    content: 'Normalize and parse the following user input\nUser Input: "What is the capital of France?!"'
+  }]);
+
+  const parsed = JSON.parse(response);
+  assert.deepEqual(parsed.keywords, ['What', 'is', 'the', 'capital', 'of', 'France']);
+});
+
+test('OpenAIInterface offline fallback message uses proper apostrophe encoding', async () => {
+  const llm = new OpenAIInterface(undefined, { explicitOffline: true });
+  const response = await llm.generateCompletion([{
+    role: 'user',
+    content: 'Generate a helpful fallback message'
+  }]);
+
+  const parsed = JSON.parse(response);
+  assert.equal(parsed.message, 'Je n’ai pas assez de contexte local pour répondre précisément.');
+});
