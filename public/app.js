@@ -28,6 +28,18 @@ showMetadata.addEventListener('change', () => {
   metadataDetails.hidden = !showMetadata.checked;
 });
 
+const applyInputFromQueryString = () => {
+  const params = new URLSearchParams(window.location.search);
+  const inputFromUrl = params.get('input');
+
+  if (!inputFromUrl) {
+    return;
+  }
+
+  input.value = inputFromUrl;
+  form.requestSubmit();
+};
+
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
 
@@ -92,3 +104,5 @@ form.addEventListener('submit', async (event) => {
     setLoading(false);
   }
 });
+
+applyInputFromQueryString();
