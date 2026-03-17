@@ -3,6 +3,18 @@ class OpenAIInterface {
     this.apiKey = apiKey;
     this.cache = new Map();
     this.explicitOffline = options.explicitOffline ?? process.env.OPENAI_OFFLINE === 'true';
+    this.provider = (options.provider || process.env.LLM_PROVIDER || 'openai').toLowerCase();
+    this.baseUrl = options.baseUrl || process.env.LLM_BASE_URL || process.env.OPENAI_BASE_URL || null;
+    this.defaultChatModel = options.chatModel
+      || process.env.LLM_CHAT_MODEL
+      || (this.provider === 'ollama' ? (process.env.OLLAMA_CHAT_MODEL || 'llama3.1') : 'gpt-4.1');
+    this.defaultEmbeddingModel = options.embeddingModel
+      || process.env.LLM_EMBED_MODEL
+      || (this.provider === 'ollama' ? (process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text') : 'text-embedding-3-small');
+
+    if (!['openai', 'ollama'].includes(this.provider)) {
+      throw new Error(`[OpenAIInterface] Unsupported provider "${this.provider}". Use "openai" or "ollama".`);
+    }
   }
 
   _offlineCompletion(messages) {
@@ -145,13 +157,35 @@ class OpenAIInterface {
       return;
     }
 
-    if (!this.apiKey) {
+    if (this.provider === 'openai' && !this.apiKey) {
       throw new Error(`[OpenAIInterface] ${operationName} requires OPENAI_API_KEY. Set OPENAI_OFFLINE=true to force offline mode.`);
     }
   }
 
-  async generateCompletion(messages, model = 'gpt-4.1', temperature = 0.7, maxTokens = 500) {
-    const cacheKey = JSON.stringify(messages) + model + temperature;
+  _resolveEndpoint(path) {
+    if (this.provider === 'ollama') {
+      const base = this.baseUrl || 'http://127.0.0.1:11434';
+      return `${base}${path}`;
+    }
+
+    if (this.baseUrl) {
+      return `${this.baseUrl}${path}`;
+    }
+
+    return `https://api.openai.com${path}`;
+  }
+
+  _buildHeaders() {
+    if (this.provider === 'ollama') {
+      return { 'Content-Type': 'application/json' };
+    }
+
+    return { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` };
+  }
+
+  async generateCompletion(messages, model = this.defaultChatModel, temperature = 0.7, maxTokens = 500) {
+    const resolvedModel = model || this.defaultChatModel;
+    const cacheKey = JSON.stringify(messages) + resolvedModel + temperature;
     if (this.cache.has(cacheKey)) return this.cache.get(cacheKey);
 
     if (this.explicitOffline) {
@@ -162,10 +196,14 @@ class OpenAIInterface {
 
     this._assertOnlineConfigured('generateCompletion');
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const payload = this.provider === 'ollama'
+      ? { model: resolvedModel, messages, stream: false, options: { temperature } }
+      : { model: resolvedModel, messages, temperature, max_tokens: maxTokens };
+
+    const response = await fetch(this._resolveEndpoint(this.provider === 'ollama' ? '/api/chat' : '/v1/chat/completions'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` },
-      body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens })
+      headers: this._buildHeaders(),
+      body: JSON.stringify(payload)
     });
 
     const data = await response.json();
@@ -173,7 +211,9 @@ class OpenAIInterface {
       throw new Error(`OpenAI API Error: ${data.error?.message || response.statusText || 'Unknown completion failure'}`);
     }
 
-    const result = data.choices[0]?.message?.content || '';
+    const result = this.provider === 'ollama'
+      ? data.message?.content || ''
+      : data.choices[0]?.message?.content || '';
     if (!result) {
       throw new Error('OpenAI API Error: completion response did not include message content.');
     }
@@ -182,17 +222,22 @@ class OpenAIInterface {
     return result;
   }
 
-  async embed(text, model = 'text-embedding-3-small', inputFormat = 'float') {
+  async embed(text, model = this.defaultEmbeddingModel, inputFormat = 'float') {
+    const resolvedModel = model || this.defaultEmbeddingModel;
     if (this.explicitOffline) {
       return [1, ...Array(7).fill(0)];
     }
 
     this._assertOnlineConfigured('embed');
 
-    const response = await fetch('https://api.openai.com/v1/embeddings', {
+    const payload = this.provider === 'ollama'
+      ? { model: resolvedModel, prompt: text }
+      : { model: resolvedModel, input: [text], encoding_format: inputFormat };
+
+    const response = await fetch(this._resolveEndpoint(this.provider === 'ollama' ? '/api/embeddings' : '/v1/embeddings'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` },
-      body: JSON.stringify({ model, input: [text], encoding_format: inputFormat })
+      headers: this._buildHeaders(),
+      body: JSON.stringify(payload)
     });
 
     const data = await response.json();
@@ -200,7 +245,7 @@ class OpenAIInterface {
       throw new Error(`OpenAI API Error: ${data.error?.message || response.statusText || 'Unknown embedding failure'}`);
     }
 
-    const embedding = data.data[0]?.embedding;
+    const embedding = this.provider === 'ollama' ? data.embedding : data.data[0]?.embedding;
     if (!embedding) {
       throw new Error('OpenAI API Error: embedding response did not include vector data.');
     }

@@ -1,6 +1,6 @@
 # Coder Brain
 
-POC Node.js d’orchestration IA en 4 phases (contexte, exécution, agrégation, sortie) avec mode online par défaut (clé OpenAI requise), et mode offline uniquement si activé explicitement (`OPENAI_OFFLINE=true`).
+POC Node.js d’orchestration IA en 4 phases (contexte, exécution, agrégation, sortie) avec support de plusieurs providers LLM : OpenAI (cloud) et Ollama (modèles open source en local). Le mode offline déterministe reste disponible via `OPENAI_OFFLINE=true`.
 
 ## Démarrage en < 10 min
 
@@ -21,8 +21,11 @@ Copiez le fichier d’exemple puis choisissez un mode:
 cp .env.example .env
 ```
 
-- Mode online: renseigner `OPENAI_API_KEY`
-- Mode offline: mettre `OPENAI_OFFLINE=true`
+- Mode OpenAI (cloud): `LLM_PROVIDER=openai` + renseigner `OPENAI_API_KEY`
+- Mode Ollama (open source local): `LLM_PROVIDER=ollama` (optionnellement `LLM_BASE_URL`)
+- Choix du modèle: `LLM_CHAT_MODEL` (chat) et `LLM_EMBED_MODEL` (embeddings), quel que soit le provider
+- Mode offline déterministe: mettre `OPENAI_OFFLINE=true`
+- Login/mot de passe web (optionnel): `WEB_LOGIN` et `WEB_PASSWORD` (auth Basic HTTP)
 
 ### Lancement en une commande
 ```bash
