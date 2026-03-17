@@ -232,7 +232,7 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 429, { error: 'Too many requests' });
   }
 
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'strict-dynamic' 'nonce-{{RANDOM}}'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'");
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   
