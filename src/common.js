@@ -233,9 +233,34 @@ class OpenAIInterface {
       throw new Error(`OpenAI API Error: ${data.error?.message || response.statusText || 'Unknown completion failure'}`);
     }
 
+    const normalizeContent = (content) => {
+      if (typeof content === 'string') {
+        return content;
+      }
+
+      if (Array.isArray(content)) {
+        return content
+          .map((part) => {
+            if (typeof part === 'string') return part;
+            if (part?.type === 'text' && typeof part?.text === 'string') return part.text;
+            return '';
+          })
+          .join('')
+          .trim();
+      }
+
+      return '';
+    };
+
+    const choice = data.choices?.[0] || {};
     const result = this.provider === 'ollama'
-      ? data.message?.content || ''
-      : data.choices[0]?.message?.content || '';
+      ? normalizeContent(data.message?.content) || data.response || ''
+      : normalizeContent(choice?.message?.content)
+        || normalizeContent(choice?.text)
+        || normalizeContent(choice?.delta?.content)
+        || normalizeContent(data.response)
+        || normalizeContent(data.output_text)
+        || '';
     if (!result) {
       throw new Error('OpenAI API Error: completion response did not include message content.');
     }

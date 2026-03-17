@@ -64,6 +64,53 @@ test('OpenAIInterface embed uses supported default encoding format', async () =>
 });
 
 
+
+
+test('OpenAIInterface accepts OpenAI-style array content blocks', async () => {
+  const previousFetch = global.fetch;
+
+  global.fetch = async () => ({
+    ok: true,
+    statusText: 'OK',
+    async json() {
+      return {
+        choices: [{
+          message: {
+            content: [{ type: 'text', text: '{"ok":true}' }]
+          }
+        }]
+      };
+    }
+  });
+
+  try {
+    const llm = new OpenAIInterface('test-key', { explicitOffline: false });
+    const response = await llm.generateCompletion([{ role: 'user', content: 'hello' }]);
+    assert.equal(response, '{"ok":true}');
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test('OpenAIInterface accepts completion text fallback payloads', async () => {
+  const previousFetch = global.fetch;
+
+  global.fetch = async () => ({
+    ok: true,
+    statusText: 'OK',
+    async json() {
+      return { choices: [{ text: 'plain text completion' }] };
+    }
+  });
+
+  try {
+    const llm = new OpenAIInterface('test-key', { explicitOffline: false });
+    const response = await llm.generateCompletion([{ role: 'user', content: 'hello' }]);
+    assert.equal(response, 'plain text completion');
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
 test('OpenAIInterface surfaces HTTP errors even when body has no API error object', async () => {
   const previousFetch = global.fetch;
   global.fetch = async () => ({
