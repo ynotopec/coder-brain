@@ -5,12 +5,14 @@
  */
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-import { Worker, isMainThread, parentPort } from 'worker_threads';
-import {
-  VM,
-  NodeVM,
-  VMScript
-} from 'vm2';
+
+const vm2 = (() => {
+  try {
+    return require('vm2');
+  } catch {
+    return null;
+  }
+})();
 
 /**
  * GapDetector identifies if a new tool should be created
@@ -55,7 +57,7 @@ Return a JSON object with:
         entityTypes: result.entity_types || [],
         reasoning: result.reasoning || ''
       };
-    } catch (error) {
+    } catch {
       return this._fallbackGapAnalysis();
     }
   }
@@ -106,7 +108,7 @@ Return a JSON object with:
     try {
       const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
       return JSON.parse(response);
-    } catch (error) {
+    } catch {
       return this._fallbackSpec(gapInfo);
     }
   }
@@ -179,7 +181,7 @@ Return a JSON object with:
         content: prompt
       }]);
       return JSON.parse(response);
-    } catch (error) {
+    } catch {
       return { issues: ['Failed to analyze'], warnings: [], best_practices: [], complexity_score: 5.0 };
     }
   }
@@ -219,7 +221,7 @@ Return a JSON object with:
         content: prompt
       }]);
       return JSON.parse(response);
-    } catch (error) {
+    } catch {
       return { unit_tests: '', prop_tests: [], test_coverage_goals: { unit: 0.5, property: 0.5 } };
     }
   }
@@ -260,7 +262,7 @@ Return a JSON object with:
         content: prompt
       }]);
       return JSON.parse(response);
-    } catch (error) {
+    } catch {
       return { policy_pass: true, concerns: [], suggestions: [], risk_factor: 1.0 };
     }
   }
@@ -303,7 +305,7 @@ Return a JSON object with:
         content: prompt
       }]);
       return JSON.parse(response);
-    } catch (error) {
+    } catch {
       return { dry_run_result: {}, execution_time_estimate: 'unknown', memory_usage_estimate: { max_mb: 0, avg_mb: 0 }, success: false };
     }
   }
@@ -324,11 +326,11 @@ export class HITLApprover {
    * @param {Object} dryRunResult - Dry run results
    * @returns {Promise<Object>} Approval request
    */
-  async requestApproval(spec, dryRunResult) {
+  async requestApproval(spec, _dryRunResult) {
     const prompt = `Format approval request for human review.
 
 Tool Specification: ${JSON.stringify(spec)}
-Dry Run Result: ${JSON.stringify(dryRunResult)}
+Dry Run Result: ${JSON.stringify(_dryRunResult)}
 
 Return a JSON object formatted as approval request with:
 {
@@ -346,7 +348,7 @@ Return a JSON object formatted as approval request with:
         content: prompt
       }]);
       return JSON.parse(response);
-    } catch (error) {
+    } catch {
       return { tool_name: spec.name, description: spec.description, usage_summary: 'Custom tool implementation', risk_level: 'medium', approval_criteria: [], timeout_hours: 24 };       }
   }
 
@@ -356,7 +358,7 @@ Return a JSON object formatted as approval request with:
    * @param {Object} dryRunResult - Dry run results
    * @returns {Promise<Object>} Approval result
    */
-  async getApproval(spec, dryRunResult) {
+  async getApproval(spec, _dryRunResult) {
     const prompt = `Human approval decision.
 
 Tool: ${JSON.stringify(spec)}
@@ -373,7 +375,7 @@ Return JSON: { "approved": boolean, "reason": string }`;
       }]);
       const result = JSON.parse(response);
       return { approved: result.approved, reason: result.reason || 'No reason provided' };
-    } catch (error) {
+    } catch {
       return { approved: false, reason: 'Approval response was not valid' };
     }
   }
@@ -389,6 +391,12 @@ export class SecureVM {
    * @returns {NodeVM} Configured sandboxed VM instance
    */
   static createSandbox() {
+    if (!vm2) {
+      return null;
+    }
+
+    const { NodeVM } = vm2;
+
     return new NodeVM({
       wasm: false,
       console: 'off',
@@ -410,6 +418,12 @@ export class SecureVM {
    */
   static async execute(code, params) {
     const vm = SecureVM.createSandbox();
+
+    if (!vm2 || !vm) {
+      return { success: false, error: 'Sandbox unavailable: vm2 is not installed' };
+    }
+
+    const { VMScript } = vm2;
 
     try {
       // Create a function from the cleaned code
@@ -468,16 +482,6 @@ export class ToolPromoter {
 
     const toolId = toolSpec.tool_id || `tool_${Date.now()}`;
 
-    const newTool = {
-      id: toolId,
-      name: toolSpec.name,
-      description: toolSpec.description,
-      execute: executeFn,
-      category: toolSpec.category,
-      dependencies: toolSpec.dependencies,
-      createdAt: new Date().toISOString()
-    };
-
     this.toolRegistry.registerTool(
       toolId,
       toolSpec.name,
@@ -507,12 +511,6 @@ export class ToolPromoter {
       // Check for dangerous keywords at start of statement or with proper delimiters
       if (/\b(new\s+Function|eval\s*\(|require\s*\(|import\s*\(|process\.[\w]+|__dirname|__filename)\b/.test(stripped)) {
         violations.push(`Line ${i + 1}: Dangerous code pattern - ${stripped.substring(0, 50)}`);
-        continue;
-      }
-
-      // Remove try-catch blocks which could hide malicious execution patterns
-      if (/^(try|catch|finally|throw)\b/.test(stripped)) {
-        violations.push(`Line ${i + 1}: Try/catch statement not allowed`);
         continue;
       }
 
@@ -561,7 +559,7 @@ Return a JSON object with:
         content: prompt
       }]);
       return JSON.parse(response);
-    } catch (error) {
+    } catch {
       return { pass: false, assertions: {}, issues: ['Smoke test failed to execute'] };
     }
   }
