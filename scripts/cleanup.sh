@@ -1,27 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Cleanup script for coder-brain
 
-set -e
+set -euo pipefail
 
-echo "🧹 Running cleanup tasks..."
+echo "🧹 Removing generated and temporary files..."
 
-# Remove node_modules cache
-if [ -d "$HOME/.npm/_cacache" ]; then
-    echo "  Clearing npm cache..."
-    npm cache clean --force || true
-fi
+# Common local artifacts
+rm -rf coverage .nyc_output .eslintcache
 
-# Remove temporary files
-echo "  Removing temporary files..."
-find . -type f \( -name "*.tmp" -o -name "*.temp" -o -name "*~" \) -delete 2>/dev/null || true
+# Node temporary logs and editor backups
+find . -type f \( -name "*.log" -o -name "*.tmp" -o -name "*.temp" -o -name "*~" \) -delete
 
-# Remove test artifacts
-echo "  Cleaning test artifacts..."
-find . -type d -name "coverage" -exec rm -rf {} + 2>/dev/null || true
-find . -type d -name ".nyc_output" -exec rm -rf {} + 2>/dev/null || true
-
-# Verify git status
-echo "\n📊 Git status:"
+echo "📊 Git status (short):"
 git status --short || true
 
-echo "\n✅ Cleanup complete!"
+echo "✅ Cleanup complete"

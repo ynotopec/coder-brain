@@ -1,4 +1,4 @@
-.PHONY: install run run-cli run-cli-offline test clean
+.PHONY: install run run-cli run-cli-offline test lint check clean
 
 install:
 	npm ci
@@ -15,5 +15,11 @@ run-cli-offline:
 test:
 	npm test
 
+lint:
+	npm run lint
+
+check:
+	npm run check
+
 clean:
-	./scripts/cleanup.sh
+	npm run clean
