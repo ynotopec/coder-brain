@@ -65,13 +65,14 @@ export class BrainSystem {
     this.llm = new OpenAIInterface(process.env.OPENAI_API_KEY);
     this.observabilityLog = new ObservabilityLog();
 
-    this.longTermMemory = new LongTermMemory(new VectorStore());
-    this.contextBuilder = new ContextBuilder(this.llm, this.longTermMemory.vectorStore, this.longTermMemory);
+    this.vectorStore = new VectorStore(this.llm);
+    this.longTermMemory = new LongTermMemory(this.vectorStore);
+    this.contextBuilder = new ContextBuilder(this.llm, this.vectorStore, this.longTermMemory);
     this.intentRouter = new IntentRouter(this.llm);
 
     this.ragEngine = {
-      vectorStore: new VectorStore(),
-      queryPlanner: new QueryPlanner(this.llm),
+      vectorStore: this.vectorStore,
+      queryPlanner: new QueryPlanner(this.llm, this.vectorStore),
       reranker: new Reranker(this.llm),
       answerGenerator: new AnswerGenerator(this.llm)
     };
@@ -97,7 +98,6 @@ export class BrainSystem {
       postDeployChecker: new PostDeployChecker(this.llm)
     };
 
-
     this.safetyChecker = new SafetyChecker(this.llm, this.observabilityLog);
     this.chatReplier = new DirectReplier(this.llm);
 
@@ -112,10 +112,6 @@ export class BrainSystem {
     });
 
     this.responseAggregator = new ResponseAggregator(this.llm);
-    this.parallelEvaluator = new ParallelEvaluator(null, null, null, this.llm);
-    this.parallelEvaluator.ragResults = null;
-    this.parallelEvaluator.actionResults = null;
-    this.parallelEvaluator.chatResults = null;
     this.qualityCalculator = new QualityScoreCalculator();
     this.safetyPolicyValidator = new SafetyPolicyValidator(this.llm);
     this.toolOutcomeValidator = new ToolOutcomeValidator(this.llm);
@@ -285,11 +281,14 @@ Return ONLY JSON:
   }
 
   async _runCritics(results, aggregated, context) {
-    this.parallelEvaluator.ragResults = results.rag || null;
-    this.parallelEvaluator.actionResults = results.action || null;
-    this.parallelEvaluator.chatResults = results.chat || null;
+    const ragResults = results.rag || null;
+    const actionResults = results.action || null;
+    const chatResults = results.chat || null;
 
-    const parallel = await this.parallelEvaluator.evaluateAll();
+    // Store for parallel evaluation
+    this._parallelEvaluator = new ParallelEvaluator(ragResults, actionResults, chatResults, this.llm);
+
+    const parallel = await this._parallelEvaluator.evaluateAll();
 
     let safeResponse = { safe: true };
     try {

@@ -53,6 +53,7 @@ test('BrainSystem action risk check evaluates dry-run output', async () => {
     riskCheckInput = { result, parameters };
     return { is_high_risk: true };
   };
+  system.toolBuilder.hitlApprover.getApproval = async () => ({ approved: false, reason: 'mock denied' });
 
   const actionResult = await system._executeAction({ context: 'add 1 and 2' });
 

@@ -1,14 +1,14 @@
 import { OpenAIInterface } from '../common.js';
 
 export class VectorStore {
-  constructor() {
+  constructor(llm) {
     this.embeddings = new Map();
     this.documents = [];
+    this.llm = llm;
   }
 
   async embed(text, model = 'text-embedding-3-small') {
-    const llm = new OpenAIInterface(process.env.OPENAI_API_KEY);
-    return await llm.embed(text, model);
+    return await this.llm.embed(text, model);
   }
 
   async search(embedding, topK = 5) {

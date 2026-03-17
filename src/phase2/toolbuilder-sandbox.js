@@ -332,13 +332,29 @@ export class ToolPromoter {
   async promote(toolSpec, implementation) {
     const toolId = toolSpec.tool_id;
 
+    const sanitized = this.sanitizeImplementation(implementation);
+    if (!sanitized.valid) {
+      return { success: false, errors: 'Code failed sanitization checks', sanitized: null };
+    }
+
+    // Create a sandboxed function that can't access Node.js APIs
+    let executeFn;
+    try {
+      executeFn = new Function('params', `"use strict";\n${sanitized.code}`);
+    } catch (error) {
+      return { success: false, errors: 'Failed to create tool function', error: error.message };
+    }
+
     const newTool = {
       id: toolId,
       name: toolSpec.name,
       description: toolSpec.description,
       execute: async (params) => {
-        const result = await eval(implementation);
-        return result;
+        try {
+          return executeFn(params);
+        } catch (err) {
+          return { error: err.message, success: false };
+        }
       },
       category: toolSpec.category,
       dependencies: toolSpec.dependencies,
@@ -349,15 +365,38 @@ export class ToolPromoter {
       toolId,
       toolSpec.name,
       toolSpec.description,
-      newTool.execute,
+      executeFn,
       toolSpec.category
     );
 
-    return {
-      success: true,
-      toolId,
-      message: 'Tool successfully promoted to registry'
-    };
+    return { success: true, toolId, message: 'Tool promoted' };
+  }
+
+  sanitizeImplementation(code) {
+    const dangerousKeywords = [
+      'eval(',
+      'Function(',
+      'require(\'module',
+      'require(\'fs',
+      'require(\'child_process',
+      'require(\'crypto',
+      'import(',
+      'process.',
+      'process.env',
+      '__dirname',
+      '__filename'
+    ];
+
+    const safeString = String(code).toLowerCase();
+    for (const keyword of dangerousKeywords) {
+      if (safeString.includes(keyword.toLowerCase())) {
+        return { valid: false, reason: 'Contains unsafe code patterns' };
+      }
+    }
+
+    // Remove common attack vectors from try/catch blocks
+    const cleaned = code.replace(/try\s*{?|catch\s*{?|finally/g, '');
+    return { valid: true, code: cleaned };
   }
 }
 
