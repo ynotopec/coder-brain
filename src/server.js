@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { BrainSystem } from '../index.js';
+import { sanitizeInput } from './phase1/context.js';
 
 /**
  * Rate limiter to prevent API abuse

@@ -31,11 +31,6 @@ make run
 
 Cette commande lance le serveur web sur `http://localhost:8080`.
 
-Alternative sans Make:
-```bash
-npm start
-```
-
 ### Interface web
 ```bash
 npm start
@@ -58,6 +53,12 @@ Exemple de sortie (abrégée):
 💬 System Response: { ... metadata: { phase: "chat" ... } }
 ✅ Setup complete! Your Brain-System is ready.
 ```
+
+
+## Automatisation (repo simplifié)
+- `make check` ou `npm run check`: lance lint + tests unitaires.
+- `make clean` ou `npm run clean`: supprime uniquement les artefacts locaux générés (`coverage`, `.nyc_output`, logs, fichiers temporaires).
+- Le test ad-hoc legacy `test.js` et l'exemple obsolète `examples/demo.js` sont désormais des placeholders minimaux pour réduire le bruit.
 
 ## Structure
 - `src/phase1`: normalisation + routage d’intention
