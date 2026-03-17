@@ -3,7 +3,7 @@ class OpenAIInterface {
     this.apiKey = apiKey;
     this.cache = new Map();
     this.explicitOffline = options.explicitOffline ?? process.env.OPENAI_OFFLINE === 'true';
-    this.provider = (options.provider || process.env.LLM_PROVIDER || 'openai').toLowerCase();
+    this.provider = this._resolveProvider(options.provider);
     this.baseUrl = options.baseUrl || process.env.LLM_BASE_URL || process.env.OPENAI_BASE_URL || null;
     this.defaultChatModel = options.chatModel
       || process.env.LLM_CHAT_MODEL
@@ -15,6 +15,28 @@ class OpenAIInterface {
     if (!['openai', 'ollama'].includes(this.provider)) {
       throw new Error(`[OpenAIInterface] Unsupported provider "${this.provider}". Use "openai" or "ollama".`);
     }
+  }
+
+  _resolveProvider(explicitProvider) {
+    const fromEnv = process.env.LLM_PROVIDER;
+    const candidate = (explicitProvider || fromEnv || '').toLowerCase().trim();
+    if (candidate) {
+      return candidate;
+    }
+
+    const hasOllamaHints = Boolean(
+      process.env.OLLAMA_CHAT_MODEL
+      || process.env.OLLAMA_EMBED_MODEL
+      || process.env.OLLAMA_HOST
+      || (process.env.LLM_BASE_URL || '').includes('11434')
+      || (process.env.OPENAI_BASE_URL || '').includes('11434')
+    );
+
+    if (!this.apiKey && hasOllamaHints) {
+      return 'ollama';
+    }
+
+    return 'openai';
   }
 
   _offlineCompletion(messages) {
