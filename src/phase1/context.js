@@ -1,3 +1,5 @@
+import { parseJsonObject } from '../common.js';
+
 /**
  * Sanitization utility for preventing LLM injection attacks
  */
@@ -58,7 +60,11 @@ User Input: "${sanitizedInput}"`;
 
     try {
       const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
-      return JSON.parse(response);
+      const parsed = parseJsonObject(response);
+      if (!parsed) {
+        throw new Error('Failed to parse normalization response as JSON');
+      }
+      return parsed;
     } catch (e) {
       console.error('[ContextBuilder] Normalization failed:', e.message);
       return {
@@ -96,7 +102,11 @@ Return a JSON object with:
 }`;
 
       const response = await this.llm.generateCompletion([{ role: 'user', content: contextPrompt }]);
-      return JSON.parse(response);
+      const parsed = parseJsonObject(response);
+      if (!parsed) {
+        throw new Error('Failed to parse context response as JSON');
+      }
+      return parsed;
     } catch (e) {
       console.error('[ContextBuilder] Context building failed:', e.message);
       return {
@@ -143,7 +153,10 @@ Return ONLY the JSON object.`;
 
     try {
       const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
-      const result = JSON.parse(response);
+      const result = parseJsonObject(response);
+      if (!result) {
+        throw new Error('Failed to parse intent classification response as JSON');
+      }
       return {
         intent: result.intent,
         confidence: result.confidence || 0.5,
@@ -183,7 +196,11 @@ export class LongTermMemory {
       const results = await this.vectorStore.search(embedding, 5);
       return results;
     } catch (error) {
-      console.error('[LongTermMemory] Retrieval failed:', error.message);
+      if (/model .* not found/i.test(error.message)) {
+        console.warn('[LongTermMemory] Retrieval skipped: embedding model unavailable. Set LLM_EMBED_MODEL/OLLAMA_EMBED_MODEL to a valid embedding model.');
+      } else {
+        console.error('[LongTermMemory] Retrieval failed:', error.message);
+      }
       return [];
     }
   }
