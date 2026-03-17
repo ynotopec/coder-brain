@@ -65,11 +65,8 @@ Exemple de sortie (abrégée):
 - `src/phase3`: agrégation et scoring qualité
 - `src/phase4`: finalisation et mémoire
 
-## Documentation projet
-- Vue d’ensemble: `docs/overview.md`
-- Architecture: `docs/architecture.md`
-- State flow (router + séquence critique): `docs/state-flow.md`
-- Cas d’usage: `USE_CASE.md`
-- Valeur métier: `VALUE.md`
-- Statut innovation: `INNOVATION_STATUS.md`
-- Prompt agent projet: `AGENT_PROJECT_PROMPT.md`
+## Documentation
+- `ARCHITECTURE.md` - Architecture et implémentation
+- `docs/overview.md` - Vue d'ensemble système
+- `docs/architecture.md` - Diagrammes d'architecture
+- `docs/state-flow.md` - State flow et séquences critiques
