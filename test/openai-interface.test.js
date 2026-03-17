@@ -129,3 +129,130 @@ test('OpenAIInterface offline fallback message uses proper apostrophe encoding',
   const parsed = JSON.parse(response);
   assert.equal(parsed.message, 'Je n’ai pas assez de contexte local pour répondre précisément.');
 });
+
+
+test('OpenAIInterface allows ollama provider without API key', async () => {
+  const previousFetch = global.fetch;
+  let requestUrl;
+  let requestHeaders;
+
+  global.fetch = async (url, options) => {
+    requestUrl = url;
+    requestHeaders = options.headers;
+    return {
+      ok: true,
+      statusText: 'OK',
+      async json() {
+        return { message: { content: 'hello from ollama' } };
+      }
+    };
+  };
+
+  try {
+    const llm = new OpenAIInterface(undefined, { explicitOffline: false, provider: 'ollama', baseUrl: 'http://127.0.0.1:11434' });
+    const response = await llm.generateCompletion([{ role: 'user', content: 'hello' }]);
+
+    assert.equal(response, 'hello from ollama');
+    assert.equal(requestUrl, 'http://127.0.0.1:11434/api/chat');
+    assert.equal(requestHeaders.Authorization, undefined);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test('OpenAIInterface ollama embed reads embedding payload format', async () => {
+  const previousFetch = global.fetch;
+
+  global.fetch = async () => ({
+    ok: true,
+    statusText: 'OK',
+    async json() {
+      return { embedding: [0.11, 0.22, 0.33] };
+    }
+  });
+
+  try {
+    const llm = new OpenAIInterface(undefined, { explicitOffline: false, provider: 'ollama', baseUrl: 'http://127.0.0.1:11434' });
+    const embedding = await llm.embed('hello world');
+    assert.deepEqual(embedding, [0.11, 0.22, 0.33]);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test('OpenAIInterface rejects unsupported provider names', () => {
+  assert.throws(
+    () => new OpenAIInterface(undefined, { provider: 'localai' }),
+    /Unsupported provider/
+  );
+});
+
+
+test('OpenAIInterface uses configured chat model for OpenAI payload', async () => {
+  const previousFetch = global.fetch;
+  let requestBody;
+
+  global.fetch = async (_url, options) => {
+    requestBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      statusText: 'OK',
+      async json() {
+        return { choices: [{ message: { content: 'ok' } }] };
+      }
+    };
+  };
+
+  try {
+    const llm = new OpenAIInterface('test-key', { explicitOffline: false, chatModel: 'gpt-4o-mini' });
+    await llm.generateCompletion([{ role: 'user', content: 'hello' }]);
+    assert.equal(requestBody.model, 'gpt-4o-mini');
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
+test('OpenAIInterface uses configured models for Ollama payloads', async () => {
+  const previousFetch = global.fetch;
+  const models = [];
+
+  global.fetch = async (_url, options) => {
+    const body = JSON.parse(options.body);
+    models.push(body.model);
+
+    if (body.prompt) {
+      return {
+        ok: true,
+        statusText: 'OK',
+        async json() {
+          return { embedding: [0.1, 0.2] };
+        }
+      };
+    }
+
+    return {
+      ok: true,
+      statusText: 'OK',
+      async json() {
+        return { message: { content: 'ok' } };
+      }
+    };
+  };
+
+  try {
+    const llm = new OpenAIInterface(undefined, {
+      explicitOffline: false,
+      provider: 'ollama',
+      baseUrl: 'http://127.0.0.1:11434',
+      chatModel: 'qwen2.5:7b',
+      embeddingModel: 'mxbai-embed-large'
+    });
+
+    await llm.generateCompletion([{ role: 'user', content: 'hello' }]);
+    await llm.embed('hello world');
+
+    assert.deepEqual(models, ['qwen2.5:7b', 'mxbai-embed-large']);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});

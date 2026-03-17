@@ -99,6 +99,48 @@ const securityLayer = {
   csrfProtection: new CSRFProtection()
 };
 
+const WEB_LOGIN = process.env.WEB_LOGIN || '';
+const WEB_PASSWORD = process.env.WEB_PASSWORD || '';
+
+const isWebAuthEnabled = () => WEB_LOGIN.length > 0 || WEB_PASSWORD.length > 0;
+
+const isAuthorized = (req) => {
+  if (!isWebAuthEnabled()) {
+    return true;
+  }
+
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Basic ')) {
+    return false;
+  }
+
+  const encoded = authHeader.slice(6).trim();
+
+  try {
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+    const separatorIndex = decoded.indexOf(':');
+    if (separatorIndex < 0) {
+      return false;
+    }
+
+    const login = decoded.slice(0, separatorIndex);
+    const password = decoded.slice(separatorIndex + 1);
+    return login === WEB_LOGIN && password === WEB_PASSWORD;
+  } catch {
+    return false;
+  }
+};
+
+const requireWebAuth = (req, res) => {
+  if (isAuthorized(req)) {
+    return true;
+  }
+
+  res.setHeader('WWW-Authenticate', 'Basic realm="Coder Brain"');
+  sendJson(res, 401, { error: 'Authentication required' });
+  return false;
+};
+
 /**
  * Send JSON response with headers
  */
@@ -187,6 +229,10 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(200);
     res.end();
+    return;
+  }
+
+  if (!requireWebAuth(req, res)) {
     return;
   }
 
