@@ -1,3 +1,5 @@
+import { parseJsonObject } from '../common.js';
+
 /**
  * Sanitization utility for preventing LLM injection attacks
  */
@@ -58,7 +60,11 @@ User Input: "${sanitizedInput}"`;
 
     try {
       const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
-      return JSON.parse(response);
+      const parsed = parseJsonObject(response);
+      if (parsed) {
+        return parsed;
+      }
+      throw new Error('Invalid JSON from normalization response');
     } catch (e) {
       console.error('[ContextBuilder] Normalization failed:', e.message);
       return {
@@ -96,7 +102,11 @@ Return a JSON object with:
 }`;
 
       const response = await this.llm.generateCompletion([{ role: 'user', content: contextPrompt }]);
-      return JSON.parse(response);
+      const parsed = parseJsonObject(response);
+      if (parsed) {
+        return parsed;
+      }
+      throw new Error('Invalid JSON from context building response');
     } catch (e) {
       console.error('[ContextBuilder] Context building failed:', e.message);
       return {
@@ -143,7 +153,10 @@ Return ONLY the JSON object.`;
 
     try {
       const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
-      const result = JSON.parse(response);
+      const result = parseJsonObject(response);
+      if (!result) {
+        throw new Error('Invalid JSON from intent routing response');
+      }
       return {
         intent: result.intent,
         confidence: result.confidence || 0.5,
