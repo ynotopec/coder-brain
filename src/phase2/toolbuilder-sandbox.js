@@ -580,7 +580,7 @@ export class RollbackManager {
    * @returns {{success: boolean, message: string}} Rollback result
    */
   async rollback(toolId) {
-    this.toolRegistry.removeTool(toolId);
+    this.toolRegistry.unregisterTool(toolId);
     return {
       success: true,
       message: `Tool ${toolId} removed from registry`
