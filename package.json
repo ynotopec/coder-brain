@@ -7,16 +7,19 @@
   "scripts": {
     "start": "node src/server.js",
     "start:dev": "node --watch src/server.js",
-    "test": "node --test",
+    "test": "node --test test/*.test.js",
     "lint": "eslint src/",
-    "run": "node src/index.js"
+    "run": "node src/index.js",
+    "clean": "./scripts/cleanup.sh",
+    "check": "npm run lint && npm test"
   },
   "keywords": [],
   "dependencies": {
     "dotenv": "^16.4.0",
     "vm2": "^3.9.19"
   },
-  "devDependencies": {    "eslint": "^10.0.1"
+  "devDependencies": {
+    "eslint": "^10.0.1"
   },
   "engines": {
     "node": ">=20.0.0"
