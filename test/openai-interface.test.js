@@ -187,6 +187,25 @@ test('OpenAIInterface rejects unsupported provider names', () => {
   );
 });
 
+test('OpenAIInterface auto-selects ollama when API key is missing and ollama hints exist', () => {
+  const previousBaseUrl = process.env.LLM_BASE_URL;
+  const previousProvider = process.env.LLM_PROVIDER;
+
+  process.env.LLM_PROVIDER = '';
+  process.env.LLM_BASE_URL = 'http://127.0.0.1:11434';
+
+  try {
+    const llm = new OpenAIInterface(undefined, { explicitOffline: true });
+    assert.equal(llm.provider, 'ollama');
+  } finally {
+    if (previousBaseUrl === undefined) delete process.env.LLM_BASE_URL;
+    else process.env.LLM_BASE_URL = previousBaseUrl;
+
+    if (previousProvider === undefined) delete process.env.LLM_PROVIDER;
+    else process.env.LLM_PROVIDER = previousProvider;
+  }
+});
+
 
 test('OpenAIInterface uses configured chat model for OpenAI payload', async () => {
   const previousFetch = global.fetch;
