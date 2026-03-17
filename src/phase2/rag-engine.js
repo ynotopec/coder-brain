@@ -31,7 +31,7 @@ export class VectorStore {
    * @param {string} model - Embedding model identifier
    * @returns {Promise<Array>} Embedding vector
    */
-  async embed(text, model = 'text-embedding-3-small') {
+  async embed(text, model = this.llm?.defaultEmbeddingModel || 'text-embedding-3-small') {
     const cacheKey = `${model}:${sanitizeContent(text)}`;
     
     // Check cache first - returns cached embedding if available
