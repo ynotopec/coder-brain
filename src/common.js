@@ -33,7 +33,7 @@ class OpenAIInterface {
       const intent = classifyIntent(userInput);
       const keywords = userInput
         .split(/\s+/)
-        .map((word) => word.replace(/[^\p{L}\p{N}_-]+/gu, ''))
+        .map((word) => word.replace(/[\p{L}\p{N}_-]+/gu, ''))
         .filter(Boolean)
         .slice(0, 8);
 
@@ -62,7 +62,7 @@ class OpenAIInterface {
       });
     }
 
-    if (last.includes('Classify the following query context')) {
+    if (last.includes('classify the following query context')) {
       const intent = classifyIntent(userInput);
       return JSON.stringify({ intent, confidence: 0.75, reasoning: 'Offline keyword classification' });
     }
@@ -128,7 +128,7 @@ class OpenAIInterface {
 
     if (last.includes('Generate a helpful fallback message')) {
       return JSON.stringify({
-        message: 'Je n’ai pas assez de contexte local pour répondre précisément.',
+        message: 'Je nâai pas assez de contexte local pour répondre précisément.',
         suggestions: ['Reformulez la question', 'Ajoutez plus de détails'],
         sentiment: 'neutral'
       });
@@ -217,4 +217,40 @@ class OpenAIInterface {
   }
 }
 
-export { OpenAIInterface };
+/**
+ * Parse JSON with fallback - supports markdown code blocks
+ * @param {*} text - String or other value to parse
+ * @param {*} fallback - Return on parsing error
+ * @returns {*}
+ */
+const parseJsonObject = (text, fallback = null) => {
+  if (typeof text !== 'string') {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (fenced && fenced[1]) {
+      try {
+        return JSON.parse(fenced[1]);
+      } catch {
+        return fallback;
+      }
+    }
+
+    const objectMatch = text.match(/\{[\s\S]*\}/);
+    if (!objectMatch) {
+      return fallback;
+    }
+
+    try {
+      return JSON.parse(objectMatch[0]);
+    } catch {
+      return fallback;
+    }
+  }
+};
+
+export { OpenAIInterface, parseJsonObject, parseJsonObject as parseJsonOr };

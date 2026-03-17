@@ -472,21 +472,25 @@ Return ONLY JSON:
   }
 
   async _refineInput(input, failureReason) {
-    const prompt = `Refine this user input based on previous failure.
+    try {
+      const prompt = `Refine this user input based on previous failure.
 
 Original: "${input}"
 Failure Reason: "${failureReason}"
 
 Return JSON: { refined: "refined input" }`;
 
-    const response = await this.llm.generateCompletion([
-      { role: 'user', content: prompt }
-    ]);
+      const response = await this.llm.generateCompletion([
+        { role: 'user', content: prompt }
+      ]);
 
-    try {
-      const result = JSON.parse(response);
-      return result.refined || input;
-    } catch (e) {
+      try {
+        const result = JSON.parse(response);
+        return result.refined || input;
+      } catch (e) {
+        return input;
+      }
+    } catch (error) {
       return input;
     }
   }
@@ -538,4 +542,4 @@ Return JSON: { refined: "refined input" }`;
 }
 
 
-export { BrainSystem as BufferSystem };
+

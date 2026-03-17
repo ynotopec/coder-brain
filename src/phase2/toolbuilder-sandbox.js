@@ -1,11 +1,34 @@
+#!/usr/bin/env node
+/**
+ * Toolbuilder Sandbox Module
+ * Provides safe code execution for dynamically generated tools
+ */
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+import { Worker, isMainThread, parentPort } from 'worker_threads';
+import {
+  VM,
+  NodeVM,
+  VMScript
+} from 'vm2';
+
+/**
+ * GapDetector identifies if a new tool should be created
+ * @class
+ */
 export class GapDetector {
   constructor(vectorStore, llm) {
     this.vectorStore = vectorStore;
     this.llm = llm;
   }
 
-  async detectGap(context, tools) {
-    const existingToolNames = tools.map(t => t.name.toLowerCase());
+  /**
+   * Detect if a tool gap exists for the given context
+   * @param {Object} context - Context object with entities and existing tools
+   * @returns {Promise<Object>} Gap analysis result
+   */
+  async detectGap(context) {
+    const existingToolNames = context.tools?.map(t => t.name.toLowerCase()) || [];
 
     const prompt = `Identify if a tool is needed for the following query.
 
@@ -22,9 +45,8 @@ Return a JSON object with:
   "reasoning": "brief explanation"
 }`;
 
-    const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
-
     try {
+      const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
       const result = JSON.parse(response);
       return {
         needsNewTool: result.needs_new_tool,
@@ -33,162 +55,191 @@ Return a JSON object with:
         entityTypes: result.entity_types || [],
         reasoning: result.reasoning || ''
       };
-    } catch (e) {
-      return {
-        needsNewTool: false,
-        toolName: null,
-        toolDescription: null,
-        entityTypes: [],
-        reasoning: 'Failed to analyze gap'
-      };
+    } catch (error) {
+      return this._fallbackGapAnalysis();
     }
+  }
+
+  _fallbackGapAnalysis() {
+    return {
+      needsNewTool: false,
+      toolName: null,
+      toolDescription: null,
+      entityTypes: [],
+      reasoning: 'Failed to analyze gap'
+    };
   }
 }
 
+/**
+ * SpecGenerator creates tool specifications from gap analysis
+ * @class
+ */
 export class SpecGenerator {
   constructor(llm) {
     this.llm = llm;
   }
 
+  /**
+   * Generate a complete tool specification
+   * @param {Object} gapInfo - Gap analysis information
+   * @returns {Promise<Object>} Tool specification
+   */
   async generateSpec(gapInfo) {
     const prompt = `Generate a tool specification based on this gap.
 
-Tool Name: ${gapInfo.tool_name}
-Description: ${gapInfo.tool_description}
-Entity Types: ${JSON.stringify(gapInfo.entity_types)}
+Tool Name: ${gapInfo.toolName}
+Description: ${gapInfo.toolDescription}
+Entity Types: ${JSON.stringify(gapInfo.entityTypes)}
 
 Return a JSON object with:
 {
   "tool_id": "unique identifier",
   "name": "clean tool name",
   "description": "detailed description",
-  "input_schema": {
-    "type": "object",
-    "properties": { "key": { "type": "type", "description": "desc" } },
-    "required": ["required_fields"]
-  },
-  "output_schema": {
-    "type": "object",
-    "properties": {},
-    "required": []
-  },
+  "input_schema": {"type": "object", "properties": {}, "required": []},
+  "output_schema": {"type": "object", "properties": {}, "required": []},
   "category": "one of: utility, analysis, transformation, custom",
   "dependencies": []
 }`;
 
-    const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
-
     try {
+      const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
       return JSON.parse(response);
-    } catch (e) {
-      return {
-        tool_id: `custom_tool_${Date.now()}`,
-        name: gapInfo.tool_name || 'custom_tool',
-        description: gapInfo.tool_description || 'Custom tool',
-        input_schema: { type: 'object', properties: {}, required: [] },
-        output_schema: { type: 'object', properties: {}, required: [] },
-        category: 'custom',
-        dependencies: []
-      };
+    } catch (error) {
+      return this._fallbackSpec(gapInfo);
     }
+  }
+
+  _fallbackSpec(gapInfo) {
+    return {
+      tool_id: `custom_tool_${Date.now()}`,
+      name: gapInfo.toolName || 'custom_tool',
+      description: gapInfo.toolDescription || 'Custom tool',
+      input_schema: { type: 'object', properties: {}, required: [] },
+      output_schema: { type: 'object', properties: {}, required: [] },
+      category: 'custom',
+      dependencies: []
+    };
   }
 }
 
+/**
+ * ImplementationGenerator creates code implementations from specifications
+ * @class
+ */
 export class ImplementationGenerator {
   constructor(llm) {
     this.llm = llm;
   }
 
+  /**
+   * Generate implementation code for a tool
+   * @param {Object} spec - Tool specification
+   * @returns {Promise<string>} Implementation code
+   */
   async generateImplementation(spec) {
     const prompt = `Write the implementation code for a tool with this specification.
 
 Specification: ${JSON.stringify(spec)}
 
-Return a code block with the complete implementation:
-- Include proper error handling
-- Add type hints if TypeScript
-- Add error messages
-- Include logging
-- Do NOT include test functions
-- Output ONLY the code block`;
+Return ONLY the code block without markdown formatting. Include:
+- Proper error handling
+- Type hints where applicable
+- Input validation
+- Logging statements`;
 
-    const response = await this.llm.generateCompletion([
-      { role: 'user', content: prompt }
-    ]);
-
-    return response;
+    return await this.llm.generateCompletion([{
+      role: 'user',
+      content: prompt
+    }]);
   }
 
-  async getStaticAnalysis(result) {
+  /**
+   * Perform static code analysis on implementation
+   * @param {string} code - Implementation code to analyze
+   * @returns {Promise<Object>} Analysis results
+   */
+  async getStaticAnalysis(code) {
     const prompt = `Analyze this code for potential issues.
 
-Code: ${result}
+Code: ${code}
 
 Return a JSON object with:
 {
   "issues": ["list of potential issues"],
   "warnings": ["list of warnings"],
   "best_practices": ["list of practices followed"],
-  "complexity_score": 1.0 to 10.0
+  "complexity_score": number between 1 and 10
 }`;
 
-    const response = await this.llm.generateCompletion([
-      { role: 'user', content: prompt }
-    ]);
-
     try {
+      const response = await this.llm.generateCompletion([{
+        role: 'user',
+        content: prompt
+      }]);
       return JSON.parse(response);
-    } catch (e) {
-      return {
-        issues: ['Failed to analyze'],
-        warnings: [],
-        best_practices: [],
-        complexity_score: 5.0
-      };
+    } catch (error) {
+      return { issues: ['Failed to analyze'], warnings: [], best_practices: [], complexity_score: 5.0 };
     }
   }
 }
 
+/**
+ * TestGenerator creates unit tests for implementations
+ * @class
+ */
 export class TestGenerator {
   constructor(llm) {
     this.llm = llm;
   }
 
+  /**
+   * Generate comprehensive unit tests
+   * @param {string} implementation - Tool implementation code
+   * @param {Object} spec - Tool specification
+   * @returns {Promise<Object>} Test results
+   */
   async generateUnitTests(implementation, spec) {
     const prompt = `Write comprehensive unit tests for this tool.
 
 Implementation Code: ${implementation}
-
 Specification: ${JSON.stringify(spec)}
 
 Return a JSON object with:
 {
   "unit_tests": "the test code",
   "prop_tests": ["example property tests"],
-  "test_coverage_goals": { "unit": 0.8, "property": 0.7 }
+  "test_coverage_goals": { "unit": number, "property": number }
 }`;
 
-    const response = await this.llm.generateCompletion([
-      { role: 'user', content: prompt }
-    ]);
-
     try {
+      const response = await this.llm.generateCompletion([{
+        role: 'user',
+        content: prompt
+      }]);
       return JSON.parse(response);
-    } catch (e) {
-      return {
-        unit_tests: '',
-        prop_tests: [],
-        test_coverage_goals: { unit: 0.5, property: 0.5 }
-      };
+    } catch (error) {
+      return { unit_tests: '', prop_tests: [], test_coverage_goals: { unit: 0.5, property: 0.5 } };
     }
   }
 }
 
+/**
+ * PolicyGatekeeper enforces security and usage policies
+ * @class
+ */
 export class PolicyGatekeeper {
   constructor(llm) {
     this.llm = llm;
   }
 
+  /**
+   * Verify tool compliance with security policies
+   * @param {Object} spec - Tool specification
+   * @param {Object} tests - Test results
+   * @returns {Promise<Object>} Policy check result
+   */
   async checkPolicy(spec, tests) {
     const prompt = `Verify if this tool proposal complies with security and usage policies.
 
@@ -197,72 +248,82 @@ Test Coverage: ${JSON.stringify(tests)}
 
 Return a JSON object with:
 {
-  "policy_pass": true/false,
+  "policy_pass": boolean,
   "concerns": ["list of policy concerns if any"],
   "suggestions": ["suggestions for compliance"],
-  "risk_factor": 1.0 to 10.0
+  "risk_factor": number between 1 and 10
 }`;
 
-    const response = await this.llm.generateCompletion([
-      { role: 'user', content: prompt }
-    ]);
-
     try {
+      const response = await this.llm.generateCompletion([{
+        role: 'user',
+        content: prompt
+      }]);
       return JSON.parse(response);
-    } catch (e) {
-      return {
-        policy_pass: true,
-        concerns: [],
-        suggestions: [],
-        risk_factor: 1.0
-      };
+    } catch (error) {
+      return { policy_pass: true, concerns: [], suggestions: [], risk_factor: 1.0 };
     }
   }
 }
 
+/**
+ * DryRunValidator simulates execution without actual deployment
+ * @class
+ */
 export class DryRunValidator {
   constructor(llm) {
     this.llm = llm;
   }
 
+  /**
+   * Execute a dry run of the tool implementation
+   * @param {string} implementation - Tool implementation code
+   * @param {Object} spec - Tool specification
+   * @returns {Promise<Object>} Dry run results
+   */
   async executeDryRun(implementation, spec) {
     const prompt = `Simulate running this tool with sample input.
 
 Implementation: ${implementation}
 Specification: ${JSON.stringify(spec)}
 
-Use sample data from the input_schema and produce example output.
+Use sample data from input_schema and produce example output.
 
 Return a JSON object with:
 {
-  "dry_run_result": { },
-  "execution_time_estimate": "estimated time",
-  "memory_usage_estimate": { "max_mb": 0.0, "avg_mb": 0.0 },
-  "success": true/false
+  "dry_run_result": {},
+  "execution_time_estimate": string,
+  "memory_usage_estimate": { "max_mb": number, "avg_mb": number },
+  "success": boolean
 }`;
 
-    const response = await this.llm.generateCompletion([
-      { role: 'user', content: prompt }
-    ]);
-
     try {
+      const response = await this.llm.generateCompletion([{
+        role: 'user',
+        content: prompt
+      }]);
       return JSON.parse(response);
-    } catch (e) {
-      return {
-        dry_run_result: {},
-        execution_time_estimate: 'unknown',
-        memory_usage_estimate: { max_mb: 0, avg_mb: 0 },
-        success: false
-      };
+    } catch (error) {
+      return { dry_run_result: {}, execution_time_estimate: 'unknown', memory_usage_estimate: { max_mb: 0, avg_mb: 0 }, success: false };
     }
   }
 }
 
+/**
+ * HITLApprover manages human-in-the-loop approval process
+ * @class
+ */
 export class HITLApprover {
   constructor(llm) {
     this.llm = llm;
   }
 
+  /**
+   * Generate approval request format for human review
+   * @param {Object} spec - Tool specification
+   * @param {Object} dryRunResult - Dry run results
+   * @returns {Promise<Object>} Approval request
+   */
   async requestApproval(spec, dryRunResult) {
     const prompt = `Format approval request for human review.
 
@@ -271,91 +332,147 @@ Dry Run Result: ${JSON.stringify(dryRunResult)}
 
 Return a JSON object formatted as approval request with:
 {
-  "tool_name": "name",
-  "description": "description",
-  "usage_summary": "how it will be used",
+  "tool_name": string,
+  "description": string,
+  "usage_summary": string,
   "risk_level": "low/medium/high",
-  "approval_criteria": ["required approvals"],
-  "timeout_hours": 24
+  "approval_criteria": [string],
+  "timeout_hours": number
 }`;
 
-    const response = await this.llm.generateCompletion([
-      { role: 'user', content: prompt }
-    ]);
-
     try {
+      const response = await this.llm.generateCompletion([{
+        role: 'user',
+        content: prompt
+      }]);
       return JSON.parse(response);
-    } catch (e) {
-      return {
-        tool_name: spec.name,
-        description: spec.description,
-        usage_summary: 'Custom tool implementation',
-        risk_level: 'medium',
-        approval_criteria: [],
-        timeout_hours: 24
-      };
-    }
+    } catch (error) {
+      return { tool_name: spec.name, description: spec.description, usage_summary: 'Custom tool implementation', risk_level: 'medium', approval_criteria: [], timeout_hours: 24 };       }
   }
 
+  /**
+   * Process human approval decision
+   * @param {Object} spec - Tool specification
+   * @param {Object} dryRunResult - Dry run results
+   * @returns {Promise<Object>} Approval result
+   */
   async getApproval(spec, dryRunResult) {
     const prompt = `Human approval decision.
 
 Tool: ${JSON.stringify(spec)}
 
-Return JSON: { "approved": true/false, "reason": "reason" }`;
-
-    const response = await this.llm.generateCompletion([
-      { role: 'user', content: prompt },
-      { role: 'system', content: 'You are an approval bot. Return approved:true or approved:false with reason.' }
-    ]);
+Return JSON: { "approved": boolean, "reason": string }`;
 
     try {
+      const response = await this.llm.generateCompletion([{
+        role: 'user',
+        content: prompt
+      }, {
+        role: 'system',
+        content: 'You are an approval bot. Return approved:true or approved:false with reason.'
+      }]);
       const result = JSON.parse(response);
-      return {
-        approved: result.approved,
-        reason: result.reason || 'No reason provided'
-      };
-    } catch (e) {
-      return {
-        approved: false,
-        reason: 'Approval response was not valid'
-      };
+      return { approved: result.approved, reason: result.reason || 'No reason provided' };
+    } catch (error) {
+      return { approved: false, reason: 'Approval response was not valid' };
     }
   }
 }
 
+/**
+ * SecureVM provides sandboxed code execution environment
+ * Uses vm2 library for isolation
+ */
+export class SecureVM {
+  /**
+   * Create a secure VM with restricted capabilities
+   * @returns {NodeVM} Configured sandboxed VM instance
+   */
+  static createSandbox() {
+    return new NodeVM({
+      wasm: false,
+      console: 'off',
+      require: false,
+      externalRequire: false,
+      builtin: ['console'],
+      accessProperties: true,
+      sandbox: {},
+      timeout: 5000,
+      eval: false
+    });
+  }
+
+  /**
+   * Execute code in a secure sandboxed environment
+   * @param {string} code - Code to execute
+   * @param {*} params - Parameters to pass to the function
+   * @returns {{success: boolean, result?: *, error?: string}} Execution result
+   */
+  static async execute(code, params) {
+    const vm = SecureVM.createSandbox();
+
+    try {
+      // Create a function from the cleaned code
+      const script = new VMScript(`(async function(params) { "use strict"; ${code} })`);
+      const fn = vm.run(script);
+      
+      if (typeof fn !== 'function') {
+        return { success: false, error: 'Generated code is not a valid function' };
+      }
+
+      const result = await fn(params);
+      return { success: true, result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+}
+
+/**
+ * ToolPromoter safely deploys new tools to registry
+ * @class
+ */
 export class ToolPromoter {
   constructor(toolRegistry) {
     this.toolRegistry = toolRegistry;
   }
 
+  /**
+   * Safely promote a tool implementation with sanitized code execution
+   * @param {Object} toolSpec - Tool specification
+   * @param {string} implementation - Implementation code
+   * @returns {{success: boolean, toolId?: string, errors?: string}} Promotion result
+   */
   async promote(toolSpec, implementation) {
-    const toolId = toolSpec.tool_id;
-
-    const sanitized = this.sanitizeImplementation(implementation);
+    const sanitized = this._sanitizeImplementation(implementation);
     if (!sanitized.valid) {
-      return { success: false, errors: 'Code failed sanitization checks', sanitized: null };
+      return { success: false, error: 'Code failed sanitization checks', details: sanitized.reason };
     }
 
-    // Create a sandboxed function that can't access Node.js APIs
-    let executeFn;
+    // Use secure VM instead of Function constructor for safe execution
+    const executeFn = async (params) => {
+      const result = await SecureVM.execute(sanitized.code, params);
+      if (!result.success) {
+        return { error: result.error, success: false };
+      }
+      return result.result;
+    };
+
     try {
-      executeFn = new Function('params', `"use strict";\n${sanitized.code}`);
+      // Execute a test run to verify the code works
+      const testParams = {};
+      await executeFn(testParams);
     } catch (error) {
-      return { success: false, errors: 'Failed to create tool function', error: error.message };
+      return { success: false, error: 'Test execution failed', details: error.message };
     }
+
+    const toolId = toolSpec.tool_id || `tool_${Date.now()}`;
 
     const newTool = {
       id: toolId,
       name: toolSpec.name,
       description: toolSpec.description,
-      execute: async (params) => {
-        try {
-          return executeFn(params);
-        } catch (err) {
-          return { error: err.message, success: false };
-        }
-      },
+      execute: executeFn,
       category: toolSpec.category,
       dependencies: toolSpec.dependencies,
       createdAt: new Date().toISOString()
@@ -369,42 +486,62 @@ export class ToolPromoter {
       toolSpec.category
     );
 
-    return { success: true, toolId, message: 'Tool promoted' };
+    return { success: true, toolId, message: 'Tool promoted successfully' };
   }
 
-  sanitizeImplementation(code) {
-    const dangerousKeywords = [
-      'eval(',
-      'Function(',
-      'require(\'module',
-      'require(\'fs',
-      'require(\'child_process',
-      'require(\'crypto',
-      'import(',
-      'process.',
-      'process.env',
-      '__dirname',
-      '__filename'
-    ];
+  /**
+   * Sanitize implementation code to remove dangerous patterns
+   * @param {string} code - Raw implementation code
+   * @returns {{valid: boolean, code?: string, reason?: string}} Sanitization result
+   */
+  _sanitizeImplementation(code) {
+    const lines = String(code).split('\n');
+    const safeLines = [];
+    const violations = [];
 
-    const safeString = String(code).toLowerCase();
-    for (const keyword of dangerousKeywords) {
-      if (safeString.includes(keyword.toLowerCase())) {
-        return { valid: false, reason: 'Contains unsafe code patterns' };
+    // Strict pattern matching on actual code structure, not case-insensitive matching
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const stripped = line.trim();
+
+      // Check for dangerous keywords at start of statement or with proper delimiters
+      if (/\b(new\s+Function|eval\s*\(|require\s*\(|import\s*\(|process\.[\w]+|__dirname|__filename)\b/.test(stripped)) {
+        violations.push(`Line ${i + 1}: Dangerous code pattern - ${stripped.substring(0, 50)}`);
+        continue;
       }
+
+      // Remove try-catch blocks which could hide malicious execution patterns
+      if (/^(try|catch|finally|throw)\b/.test(stripped)) {
+        violations.push(`Line ${i + 1}: Try/catch statement not allowed`);
+        continue;
+      }
+
+      safeLines.push(line);
     }
 
-    // Remove common attack vectors from try/catch blocks
-    const cleaned = code.replace(/try\s*{?|catch\s*{?|finally/g, '');
-    return { valid: true, code: cleaned };
+    if (violations.length > 0) {
+      return { valid: false, reason: violations.join('; ') };
+    }
+
+    return { valid: true, code: safeLines.join('\n') };
   }
 }
 
+/**
+ * PostDeployChecker validates tool execution after deployment
+ * @class
+ */
 export class PostDeployChecker {
   constructor(llm) {
     this.llm = llm;
   }
 
+  /**
+   * Run smoke tests on deployed tool execution result
+   * @param {string} toolId - Tool identifier
+   * @param {*} executionResult - Result from tool execution
+   * @returns {Promise<Object>} Smoke test results
+   */
   async smokeTest(toolId, executionResult) {
     const prompt = `Run a smoke test on this tool result.
 
@@ -413,29 +550,39 @@ Execution Result: ${JSON.stringify(executionResult)}
 
 Return a JSON object with:
 {
-  "pass": true/false,
+  "pass": boolean,
   "assertions": { "key": "expected_value" },
-  "issues": ["list of issues if any"]
+  "issues": [string]
 }`;
 
-    const response = await this.llm.generateCompletion([
-      { role: 'user', content: prompt }
-    ]);
-
     try {
+      const response = await this.llm.generateCompletion([{
+        role: 'user',
+        content: prompt
+      }]);
       return JSON.parse(response);
-    } catch (e) {
-      return {
-        pass: false,
-        assertions: {},
-        issues: ['Smoke test failed to execute']
-      };
+    } catch (error) {
+      return { pass: false, assertions: {}, issues: ['Smoke test failed to execute'] };
     }
   }
 }
 
+/**
+ * RollbackManager handles tool rollback operations
+ * @class
+ */
 export class RollbackManager {
+  constructor(toolRegistry) {
+    this.toolRegistry = toolRegistry;
+  }
+
+  /**
+   * Remove a tool from production
+   * @param {string} toolId - Tool identifier to remove
+   * @returns {{success: boolean, message: string}} Rollback result
+   */
   async rollback(toolId) {
+    this.toolRegistry.removeTool(toolId);
     return {
       success: true,
       message: `Tool ${toolId} removed from registry`

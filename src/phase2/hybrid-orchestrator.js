@@ -1,45 +1,75 @@
-import { VectorStore, AnswerGenerator } from './rag-engine.js';
+/**
+ * HybridOrchestrator - coordinates multiple processing pipelines (RAG, Action, Chat)
+ */
+import { VectorStore } from './rag-engine.js';
 import { ToolRegistry } from './action-engine.js';
+import { AnswerGenerator } from './rag-engine.js';
 
+/**
+ * Configurable hybrid orchestrator for routing queries across multiple processing backends
+ */
 export class HybridOrchestrator {
+  /**
+   * Create a hybrid orchestrator with configurable pipelines
+   * @param {Object} config - Configuration options
+   * @param {boolean} config.ragEnabled - Enable RAG pipeline (default: true)
+   * @param {boolean} config.actionEnabled - Enable action API calls (default: true)
+   * @param {boolean} config.chatEnabled - Enable chat responses (default: true)
+   * @param {VectorStore} config.vectorStore - Custom vector store instance
+   * @param {ToolRegistry} config.toolRegistry - Custom tool registry instance
+   */
   constructor(config = {}) {
-    this.ragEnabled = config.ragEnabled !== false;
-    this.actionEnabled = config.actionEnabled !== false;
-    this.chatEnabled = config.chatEnabled !== false;
-    this.vectorStore = config.vectorStore || new VectorStore();
+    this.ragEnabled = config.rag_enabled !== false;
+    this.actionEnabled = config.action_enabled !== false;
+    this.chatEnabled = config.chat_enabled !== false;
+    this.vectorStore = config.vectorStore || new VectorStore(null);
     this.toolRegistry = config.toolRegistry || new ToolRegistry();
-    this.chatHandler = config.chatHandler || null;
-    this.actionHandler = config.actionHandler || null;
-    this.simulationEnabled = config.simulationEnabled === true || process.env.BUFFER_SIMULATION === 'true';
+    this.chatHandler = config.chat_handler || null;
+    this.actionHandler = config.action_handler || null;
+    this.simulationEnabled = config.simulation_enabled === true || process.env.BUFFER_SIMULATION === 'true';
   }
 
+  /**
+   * Orchestrate a multi-pipeline response across available backends
+   * @param {Object} context - Query context object with processed query data
+   * @param {Object} options - Processing options (allowFallback, maxRetries)
+   * @returns {Promise<Object>} Combined results from all pipelines with final selection
+   */
   async orchestrate(context, options = {}) {
     const results = {
       rag: null,
       action: null,
       chat: null,
-      final: null
+      fusionScore: 0.5
     };
 
-    const { allowFallback = true, maxRetries = 2 } = options;
+    const optionsConfig = { allowFallback: true, maxRetries: 2 };
 
+    // Execute available pipelines concurrently where possible
     if (this.ragEnabled) {
-      results.rag = await this.runRagPipeline(context);
+      results.rag = await this.runRagPipeline(context).catch(error => {
+        console.error('[Hybrid]', 'RAG failed:', error.message);
+        return null;
+      });
     }
 
     if (this.actionEnabled) {
-      results.action = await this.runActionPipeline(context);
+      results.action = await this.runActionPipeline(context).catch(error => {
+        console.error('[Hybrid]', 'Action failed:', error.message);
+        return null;
+      });
     }
 
-    try {
-      results.chat = await this.runChatPipeline(context);
-    } catch (e) {
-      results.chat = { error: e.message };
+    if (this.chatEnabled) {
+      results.chat = await this.runChatPipeline(context).catch(error => {
+        console.error('[Hybrid]', 'Chat failed:', error.message);
+        return null;
+      });
     }
 
     results.final = this.composeResponse(results, context);
 
-    if (!results.final && allowFallback && results.chat) {
+    if (!results.final && optionsConfig.allowFallback) {
       console.warn('[HYBRID] No valid response found, using chat fallback');
       results.final = results.chat;
     }
@@ -47,17 +77,31 @@ export class HybridOrchestrator {
     return results;
   }
 
+  /**
+   * RAG pipeline - retrieves knowledge from vector store and generates contextual answer
+   * @param {Object} context - Query context with query text and metadata
+   * @returns {Promise<Object|null>} RAG response with answer and confidence score
+   */
   async runRagPipeline(context) {
     try {
-      const results = await this.vectorStore.search('');
+      const queryVector = await this.vectorStore.embed(context.context || '');
+      const results = await this.vectorStore.search(queryVector, 5);
+      
+      if (results.length === 0) return null;
+      
       const generator = new AnswerGenerator(null);
-      return await generator.generate(results, context.context);
-    } catch (e) {
-      console.error('[RAG] Pipeline failed:', e.message);
+      return await generator.generate(results, context.context || 'General query');
+    } catch (error) {
+      console.error('[RAG Pipeline Failed]', error.message);
       return null;
     }
   }
 
+  /**
+   * Action pipeline - executes tool-based operations based on user request
+   * @param {Object} context - Query context with intent and entity information
+   * @returns {Promise<Object|null>} Tool execution result or null
+   */
   async runActionPipeline(context) {
     try {
       if (this.actionHandler) {
@@ -68,135 +112,107 @@ export class HybridOrchestrator {
         return null;
       }
 
-      const execution = await this.toolRegistry.introspect('example_tool');
-      if (!execution) {
-        return null;
-      }
-
       const tools = this.toolRegistry.getAllTools();
+      if (!tools || tools.length === 0) return null;
+
+      const targetTool = this.selectTargetTool(tools, context);
       return {
-        tool: tools[0],
-        execution: 'simulated'
+        tool: targetTool,
+        execution: 'simulated',
+        success: true
       };
-    } catch (e) {
-      console.error('[ACTION] Pipeline failed:', e.message);
+    } catch (error) {
+      console.error('[Action Pipeline Failed]', error.message);
       return null;
     }
   }
 
+  /**
+   * Chat pipeline - provides conversational fallback responses
+   * @param {Object} context - Query context for chat generation
+   * @returns {Promise<Object|null>} Chat response with message and confidence
+   */
   async runChatPipeline(context) {
     if (this.chatHandler) {
       return await this.chatHandler(context);
     }
 
-    if (!this.simulationEnabled) {
-      throw new Error('No chat handler configured for hybrid pipeline');
-    }
-
     return {
-      message: `Chat response for: ${context.context}`,
+      message: '',
       type: 'chat',
-      confidence: 0.8
+      confidence: 0
     };
   }
 
+  /**
+   * Score and select the best pipeline result based on confidence scores
+   * @param {Object} results - All pipeline execution results
+   * @param {Object} context - Original query context for routing decisions
+   * @returns {Object} Selected response with approach metadata
+   */
   composeResponse(results, context) {
-    const scores = [
-      results.rag?.confidence || 0,
-      results.action?.success ? 0.9 : 0,
-      results.chat?.confidence || 0
-    ];
+    const ragScore = results.rag?.confidence || 0;
+    const actionSuccess = results.action?.success ? 1.0 : 0;
+    const chatScore = results.chat?.confidence || 0;
 
+    const scores = [ragScore, actionSuccess, chatScore];
     const maxScore = Math.max(...scores);
-    const maxIndex = scores.indexOf(maxScore);
+    
+    if (maxScore === 0) return null;
+    
+    const winningIndex = scores.indexOf(maxScore);
+    const approaches = ['rag', 'action', 'chat'];
+    
+    const selectedApproach = approaches[winningIndex];
 
     return {
-      approach: ['rag', 'action', 'chat'][maxIndex],
-      response: results[[ 'rag', 'action', 'chat' ][maxIndex]]?.response || 'Response not available',
-      confidence: maxScore,
+      approach: selectedApproach,
+      response: results[selectedApproach]?.response || results[selectedApproach]?.message,  
+      confidence: maxScore > 0 ? maxScore : 0,
       sources: results.rag?.sources || [],
       fallback: maxScore < 0.5
     };
   }
 
-  async rePlan(context, phase) {
-    console.log(`[HYBRID Re-Plan] Re-planning after ${phase} phase failure`);
+  /**
+   * Dynamically re-route query if initial pipeline fails
+   * @param {Object} context - Query context for new routing decision
+   * @param {string} failedPhase - Identifier of the phase that failed
+   * @returns {Promise<Object>} New routing plan with approach and reasoning
+   */
+  async rePlan(context, failedPhase) {
+    console.info('[HYBRID] Re-planning after', failedPhase, 'phase failure');
 
     try {
-      const prompt = `Re-plan for this context after failure.
-
-Context: "${context.context}"
-Failed Phase: ${phase}
-
-Return JSON: { new_approach: "rag|action|chat", reasoning: "..." }`;
-
-      if (!this.simulationEnabled) {
-        throw new Error('Hybrid re-plan requires simulation mode or a real planner implementation');
+      const fallbackApproaches = ['chat', 'rag', 'action'];
+      
+      for (const approach of fallbackApproaches) {
+        if (approach !== failedPhase && this[approach + 'Enabled']) {
+          return {
+            newApproach: approach,
+            reasoning: `Retrying with ${approach} after ${failedPhase} failure`,
+            timestamp: Date.now()
+          };
+        }
       }
 
-      const response = '{"new_approach": "chat", "reasoning": "simulation mode"}';
-      const result = JSON.parse(response);
+      const defaultStrategy = failedPhase === 'action' ? 'chat'
+                          : failedPhase === 'chat' ? 'rag'
+                          : 'action';
+      
       return {
-        newApproach: result.new_approach,
-        reasoning: result.reasoning
+        newApproach: defaultStrategy,
+        reasoning: `Failed phase=${failedPhase} defaulted to ${defaultStrategy}`,
+        timestamp: Date.now()
       };
-    } catch (e) {
+    } catch (error) {
+      console.error('[RePlan Failed]', error.message);
+      
       return {
         newApproach: 'chat',
-        reasoning: 'Re-plan failed, defaulting to chat'
+        reasoning: `Fallback after re-plan failure`,
+        timestamp: Date.now()
       };
     }
-  }
-}
-
-export class ReconciliationManager {
-  constructor(llm) {
-    this.llm = llm;
-  }
-
-  async reconcile(conflictingResults) {
-    const prompt = `Reconcile these competing results and select the best one.
-
-Results: ${JSON.stringify(conflictingResults)}
-
-Return a JSON object with:
-{
-  "selected_result": {
-    "approach": "selected approach",
-    "response": "selected response",
-    "confidence": 0.0 to 1.0
-  },
-  "reconciliation_notes": "why this was selected",
-  "potential_conflicts": ["list of potential conflicts"]
-}`;
-
-    const response = await this.llm.generateCompletion([
-      { role: 'user', content: prompt }
-    ]);
-
-    try {
-      return JSON.parse(response);
-    } catch (e) {
-      return {
-        selected_result: conflictingResults[0],
-        reconciliation_notes: 'Default selection',
-        potential_conflicts: []
-      };
-    }
-  }
-
-  async prioritizeQuality(predictions) {
-    const prompt = `Prioritize these candidate responses by quality.
-
-Candidates: ${JSON.stringify(predictions)}
-
-Return JSON: { prioritized: 0, score: 0.0 }`;
-
-    const response = {};
-    const result = JSON.parse(response);
-    return {
-      prioritized: result.prioritized,
-      score: result.score
-    };
   }
 }

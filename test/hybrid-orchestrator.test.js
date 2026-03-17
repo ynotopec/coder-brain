@@ -5,10 +5,10 @@ import { HybridOrchestrator } from '../src/phase2/hybrid-orchestrator.js';
 
 test('HybridOrchestrator does not return simulated action when simulation is disabled', async () => {
   const orchestrator = new HybridOrchestrator({
-    actionEnabled: true,
-    chatEnabled: false,
-    ragEnabled: false,
-    simulationEnabled: false
+    action_enabled: true,
+    chat_enabled: false,
+    rag_enabled: false,
+    simulation_enabled: false
   });
 
   const action = await orchestrator.runActionPipeline({ context: 'test' });
@@ -17,11 +17,11 @@ test('HybridOrchestrator does not return simulated action when simulation is dis
 
 test('HybridOrchestrator uses configured chat handler instead of simulated chat', async () => {
   const orchestrator = new HybridOrchestrator({
-    actionEnabled: false,
-    ragEnabled: false,
-    chatEnabled: true,
-    simulationEnabled: false,
-    chatHandler: async () => ({ message: 'real handler', type: 'chat', confidence: 0.9 })
+    action_enabled: false,
+    rag_enabled: false,
+    chat_enabled: true,
+    simulation_enabled: false,
+    chat_handler: async () => ({ message: 'real handler', type: 'chat', confidence: 0.9 })
   });
 
   const chat = await orchestrator.runChatPipeline({ context: 'bonjour' });

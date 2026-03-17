@@ -13,7 +13,8 @@
   },
   "keywords": [],
   "dependencies": {
-    "dotenv": "^16.4.0"
+    "dotenv": "^16.4.0",
+    "vm2": "^3.9.19"
   },
   "devDependencies": {
     "eslint": "^10.0.1",

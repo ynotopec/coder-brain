@@ -1,7 +1,7 @@
+process.env.OPENAI_OFFLINE = 'true';
+
 import { BrainSystem } from './index.js';
 import { OpenAIInterface } from './src/common.js';
-
-process.env.OPENAI_OFFLINE = process.env.OPENAI_OFFLINE || 'true';
 
 console.log('🧪 Testing BrainSystem Implementation');
 

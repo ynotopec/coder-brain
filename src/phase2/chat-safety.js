@@ -1,35 +1,5 @@
-import { OpenAIInterface } from '../common.js';
+import { OpenAIInterface, parseJsonObject } from '../common.js';
 import { buildLocalChatReply } from './chat-fallbacks.js';
-
-const parseJsonObject = (text) => {
-  if (typeof text !== 'string') {
-    return null;
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    const fenced = text.match(/```json\s*([\s\S]*?)\s*```/i);
-    if (fenced && fenced[1]) {
-      try {
-        return JSON.parse(fenced[1]);
-      } catch {
-        return null;
-      }
-    }
-
-    const objectMatch = text.match(/\{[\s\S]*\}/);
-    if (!objectMatch) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(objectMatch[0]);
-    } catch {
-      return null;
-    }
-  }
-};
 
 const isFalseEmptyInputReply = (input, message) => {
   const safeInput = String(input || '').trim();

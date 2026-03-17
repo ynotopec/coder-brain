@@ -1,11 +1,53 @@
+/**
+ * Sanitization utility for preventing LLM injection attacks
+ */
+export function sanitizeInput(userInput) {
+  if (typeof userInput !== 'string') {
+    return String(userInput || '');
+  }
+
+  let sanitized = userInput;
+
+  // Remove HTML/script tags
+  sanitized = sanitized.replace(/<script[^>]*>.*?<\/script>/gi, '');
+  sanitized = sanitized.replace(/<[\w\s="':>]+/g, '');
+
+  // Escape potentially dangerous quote patterns
+  sanitized = sanitized.replaceAll('""', '"');
+
+  // Limit length and strip control characters
+  sanitized = sanitized.slice(0, 5000).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ' ');
+
+  return sanitized.trim();
+}
+
+const MAX_INPUT_LENGTH = 5000;
+const MAX_RESPONSE_LENGTH = 5000;
+
+/**
+ * ContextBuilder - constructs query context with memory retrieval
+ */
 export class ContextBuilder {
+  /**
+   * Create a context builder for query processing
+   * @param {OpenAIInterface} llm - OpenAI interface for query normalization
+   * @param {VectorStore} vectorStore - Vector store for embedding and search
+   * @param {LongTermMemory} longTermMemory - Memory storage instance
+   */
   constructor(llm, vectorStore, longTermMemory) {
     this.llm = llm;
     this.vectorStore = vectorStore;
     this.longTermMemory = longTermMemory;
   }
 
+  /**
+   * Normalize and parse user input with sanitization
+   * @param {string} input - Raw user input (max 5000 chars)
+   * @returns {Promise<Object>} Normalized input result
+   */
   async normalizeInput(input) {
+    const sanitizedInput = sanitizeInput(input);
+
     const prompt = `Normalize and parse the following user input. Return a JSON object with these fields:
 {
   "normalized_text": "Normalized version of the input",
@@ -14,15 +56,15 @@ export class ContextBuilder {
   "keywords": ["extracted keywords as array"]
 }
 
-User Input: "${input}"`;
-
-    const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
+User Input: "${sanitizedInput}"`;
 
     try {
+      const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
       return JSON.parse(response);
     } catch (e) {
+      console.error('[ContextBuilder] Normalization failed:', e.message);
       return {
-        normalized_text: input,
+        normalized_text: sanitizedInput,
         intent_type: 'chat',
         entities: [],
         keywords: []
@@ -30,11 +72,17 @@ User Input: "${input}"`;
     }
   }
 
+  /**
+   * Build context from normalized input with memory retrieval
+   * @param {Object} normalizedInput - Normalized input object
+   * @returns {Promise<Object>} Context object
+   */
   async buildContext(normalizedInput) {
-    const memoryRetrieval = await this.longTermMemory.retrieve(normalizedInput.normalized_text);
-    const similarContent = memoryRetrieval.length > 0 ? memoryRetrieval[0].content : undefined;
+    try {
+      const memoryRetrieval = await this.longTermMemory.retrieve(normalizedInput.normalized_text);
+      const similarContent = memoryRetrieval.length > 0 ? memoryRetrieval[0].content : undefined;
 
-    const contextPrompt = `Build context for answering the following user query.
+      const contextPrompt = `Build context for answering the following user query.
 
 User Input: "${normalizedInput.normalized_text}"
 Entities: ${JSON.stringify(normalizedInput.entities)}
@@ -49,11 +97,10 @@ Return a JSON object with:
   "retrieval_strategy": "what strategy should be used for retrieval"
 }`;
 
-    const response = await this.llm.generateCompletion([{ role: 'user', content: contextPrompt }]);
-
-    try {
+      const response = await this.llm.generateCompletion([{ role: 'user', content: contextPrompt }]);
       return JSON.parse(response);
     } catch (e) {
+      console.error('[ContextBuilder] Context building failed:', e.message);
       return {
         context: normalizedInput.normalized_text,
         relevant_memories: [],
@@ -64,11 +111,23 @@ Return a JSON object with:
   }
 }
 
+/**
+ * IntentRouter - routes queries to appropriate processing pipelines
+ */
 export class IntentRouter {
+  /**
+   * Create an intent router for query classification
+   * @param {OpenAIInterface} llm - OpenAI interface for intent detection
+   */
   constructor(llm) {
     this.llm = llm;
   }
 
+  /**
+   * Route query to appropriate handler based on context
+   * @param {Object} context - Query context object
+   * @returns {Promise<Object>} Routing decision with intent and confidence
+   */
   async route(context) {
     const prompt = `Classify the following query context. Return a JSON object with these fields:
 
@@ -79,21 +138,21 @@ export class IntentRouter {
 }
 
 Context: "${context.context}"
-Query Type: ${context.query_type}
-Entities: ${JSON.stringify(context.entities)}
+Query Type: ${context.query_type || 'general'}
+Entities: ${JSON.stringify(context.entities || [])}
 
 Return ONLY the JSON object.`;
 
-    const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
-
     try {
+      const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
       const result = JSON.parse(response);
       return {
         intent: result.intent,
-        confidence: result.confidence,
+        confidence: result.confidence || 0.5,
         reasoning: result.reasoning
       };
     } catch (e) {
+      console.error('[IntentRouter] Classification failed:', e.message);
       return {
         intent: 'chat',
         confidence: 0.5,
@@ -103,19 +162,47 @@ Return ONLY the JSON object.`;
   }
 }
 
+/**
+ * LongTermMemory - manages persistent knowledge storage in vector store
+ */
 export class LongTermMemory {
+  /**
+   * Create a long-term memory system backed by vector store
+   * @param {VectorStore} vectorStore - Vector store for embeddings
+   */
   constructor(vectorStore) {
     this.vectorStore = vectorStore;
   }
 
+  /**
+   * Retrieve relevant content from memory based on query
+   * @param {string} query - User query to search for
+   * @returns {Promise<Array>} Matching results
+   */
   async retrieve(query) {
-    const embedding = await this.vectorStore.embed(query);
-    const results = await this.vectorStore.search(embedding, 5);
-    return results;
+    try {
+      const embedding = await this.vectorStore.embed(query);
+      const results = await this.vectorStore.search(embedding, 5);
+      return results;
+    } catch (error) {
+      console.error('[LongTermMemory] Retrieval failed:', error.message);
+      return [];
+    }
   }
 
+  /**
+   * Save new content to memory with optional metadata
+   * @param {string} content - Content to save
+   * @param {Object} metadata - Optional metadata object
+   * @returns {{status: string, id: string}} Save result
+   */
   async save(content, metadata = {}) {
-    await this.vectorStore.add(content, metadata);
-    return { status: 'saved', id: metadata.id };
+    try {
+      await this.vectorStore.add(content, metadata);
+      return { status: 'saved', id: metadata.id || null };
+    } catch (error) {
+      console.error('[LongTermMemory] Save failed:', error.message);
+      return { status: 'failed', id: null };
+    }
   }
 }
