@@ -21,8 +21,6 @@ export function sanitizeInput(userInput) {
   return sanitized.trim();
 }
 
-const MAX_INPUT_LENGTH = 5000;
-const MAX_RESPONSE_LENGTH = 5000;
 
 /**
  * ContextBuilder - constructs query context with memory retrieval

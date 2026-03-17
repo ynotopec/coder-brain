@@ -35,7 +35,7 @@ export class HybridOrchestrator {
    * @param {Object} options - Processing options (allowFallback, maxRetries)
    * @returns {Promise<Object>} Combined results from all pipelines with final selection
    */
-  async orchestrate(context, options = {}) {
+  async orchestrate(context, _options = {}) {
     const results = {
       rag: null,
       action: null,
@@ -150,7 +150,7 @@ export class HybridOrchestrator {
    * @param {Object} context - Original query context for routing decisions
    * @returns {Object} Selected response with approach metadata
    */
-  composeResponse(results, context) {
+  composeResponse(results, _context) {
     const ragScore = results.rag?.confidence || 0;
     const actionSuccess = results.action?.success ? 1.0 : 0;
     const chatScore = results.chat?.confidence || 0;

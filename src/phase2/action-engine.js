@@ -1,5 +1,3 @@
-import { OpenAIInterface } from '../common.js';
-
 export class ToolRegistry {
   constructor() {
     this.tools = new Map();
@@ -87,7 +85,7 @@ Return a JSON object with:
       }
 
       return null;
-    } catch (e) {
+    } catch {
       return null;
     }
   }
@@ -117,7 +115,7 @@ Return a JSON object with:
 
     try {
       return JSON.parse(response);
-    } catch (e) {
+    } catch {
       return {
         valid: false,
         warnings: ['Failed to validate via LLM'],
@@ -149,7 +147,7 @@ Return a JSON object with:
 
     try {
       return JSON.parse(response);
-    } catch (e) {
+    } catch {
       return {
         is_high_risk: false,
         issues: [],
@@ -212,7 +210,7 @@ Return a JSON object with:
     try {
       const response = await this.llm.generateCompletion([{ role: 'user', content: prompt }]);
       return JSON.parse(response);
-    } catch (e) {
+    } catch {
       return {
         verify: true,
         issues: [],

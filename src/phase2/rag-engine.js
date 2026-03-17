@@ -1,8 +1,6 @@
 /**
  * RAG Engine Module - Retrieval Augmented Generation components
  */
-import { OpenAIInterface } from '../common.js';
-
 /**
  * Sanitized content storage to prevent injection attacks
  * @param {string} text - Input string to sanitize

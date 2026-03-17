@@ -1,4 +1,4 @@
-import { OpenAIInterface, parseJsonObject } from '../common.js';
+import { parseJsonObject } from '../common.js';
 import { buildLocalChatReply } from './chat-fallbacks.js';
 
 const isFalseEmptyInputReply = (input, message) => {
@@ -159,7 +159,7 @@ Return a JSON object with:
 
     try {
       return JSON.parse(response);
-    } catch (e) {
+    } catch {
       return {
         policy_violation: false,
         violations: [],
@@ -193,7 +193,7 @@ Return a JSON object with:
 
     try {
       return JSON.parse(response);
-    } catch (e) {
+    } catch {
       return {
         appropriate: true,
         issues: [],

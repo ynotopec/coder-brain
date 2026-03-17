@@ -33,7 +33,7 @@ class OpenAIInterface {
       const intent = classifyIntent(userInput);
       const keywords = userInput
         .split(/\s+/)
-        .map((word) => word.replace(/[\p{L}\p{N}_-]+/gu, ''))
+        .map((word) => word.replace(/[^\p{L}\p{N}_-]+/gu, ''))
         .filter(Boolean)
         .slice(0, 8);
 
@@ -128,7 +128,7 @@ class OpenAIInterface {
 
     if (last.includes('Generate a helpful fallback message')) {
       return JSON.stringify({
-        message: 'Je nâai pas assez de contexte local pour répondre précisément.',
+        message: 'Je n’ai pas assez de contexte local pour répondre précisément.',
         suggestions: ['Reformulez la question', 'Ajoutez plus de détails'],
         sentiment: 'neutral'
       });
