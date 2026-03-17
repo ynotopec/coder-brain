@@ -185,13 +185,23 @@ class OpenAIInterface {
   }
 
   _resolveEndpoint(path) {
+    const joinEndpoint = (base, suffix) => {
+      const normalizedBase = (base || '').replace(/\/+$/, '');
+      const normalizedSuffix = suffix.startsWith('/') ? suffix : `/${suffix}`;
+      const dedupedSuffix = normalizedBase.endsWith('/v1') && normalizedSuffix.startsWith('/v1/')
+        ? normalizedSuffix.slice(3)
+        : normalizedSuffix;
+
+      return `${normalizedBase}${dedupedSuffix}`;
+    };
+
     if (this.provider === 'ollama') {
       const base = this.baseUrl || 'http://127.0.0.1:11434';
-      return `${base}${path}`;
+      return joinEndpoint(base, path);
     }
 
     if (this.baseUrl) {
-      return `${this.baseUrl}${path}`;
+      return joinEndpoint(this.baseUrl, path);
     }
 
     return `https://api.openai.com${path}`;
