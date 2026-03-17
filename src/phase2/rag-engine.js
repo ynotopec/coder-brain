@@ -1,3 +1,5 @@
+import { parseJsonObject } from '../common.js';
+
 /**
  * RAG Engine Module - Retrieval Augmented Generation components
  */
@@ -295,7 +297,10 @@ Return a valid JSON response:
         stream: false
       }]);
 
-      const parsed = JSON.parse(response);
+      const parsed = parseJsonObject(response);
+      if (!parsed) {
+        throw new Error('Invalid JSON from answer generation response');
+      }
       
       return {
         answer: parsed.answer || 'I could not generate a response',
@@ -338,7 +343,10 @@ Return JSON:
         stream: false
       }]);
 
-      const parsed = JSON.parse(response);
+      const parsed = parseJsonObject(response);
+      if (!parsed) {
+        throw new Error('Invalid JSON from fallback response');
+      }
       
       return {
         message: parsed.message || 'I apologize, but I couldn\'t process your request right now.',
