@@ -278,6 +278,34 @@ test('OpenAIInterface uses configured chat model for OpenAI payload', async () =
   }
 });
 
+test('OpenAIInterface avoids duplicating /v1 when OPENAI_BASE_URL already includes /v1', async () => {
+  const previousFetch = global.fetch;
+  let requestUrl;
+
+  global.fetch = async (url) => {
+    requestUrl = url;
+    return {
+      ok: true,
+      statusText: 'OK',
+      async json() {
+        return { choices: [{ message: { content: 'ok' } }] };
+      }
+    };
+  };
+
+  try {
+    const llm = new OpenAIInterface('test-key', {
+      explicitOffline: false,
+      provider: 'openai',
+      baseUrl: 'http://127.0.0.1:11434/v1'
+    });
+    await llm.generateCompletion([{ role: 'user', content: 'hello' }]);
+    assert.equal(requestUrl, 'http://127.0.0.1:11434/v1/chat/completions');
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
+
 test('OpenAIInterface uses configured models for Ollama payloads', async () => {
   const previousFetch = global.fetch;
   const models = [];
