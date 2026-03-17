@@ -185,8 +185,17 @@ const parseInput = (body) => {
 /**
  * Serve static files with path traversal protection
  */
+const getRequestPathname = (req) => {
+  try {
+    return new URL(req.url, `http://${req.headers.host || 'localhost'}`).pathname;
+  } catch {
+    return req.url;
+  }
+};
+
 const serveStatic = (req, res) => {
-  const normalizedPath = req.url === '/' ? '/index.html' : req.url;
+  const pathname = getRequestPathname(req);
+  const normalizedPath = pathname === '/' ? '/index.html' : pathname;
   const safePath = path.normalize(normalizedPath).replace(/^\/+/, '');
   const filePath = path.join(publicDir, safePath);
 
@@ -210,6 +219,7 @@ const serveStatic = (req, res) => {
 };
 
 const server = http.createServer(async (req, res) => {
+  const pathname = getRequestPathname(req);
   const clientId = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   
   // Rate limiting - check before processing request
@@ -236,7 +246,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === 'GET' && req.url === '/api/csrf-token') {
+  if (req.method === 'GET' && pathname === '/api/csrf-token') {
     generateCSRFToken(res);
     return;
   }
@@ -246,7 +256,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === 'POST' && req.url === '/api/process') {
+  if (req.method === 'POST' && pathname === '/api/process') {
     let body = '';
     let totalSize = 0;
     const MAX_BODY_SIZE = 10000;
